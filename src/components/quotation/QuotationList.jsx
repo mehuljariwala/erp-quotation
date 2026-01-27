@@ -1,0 +1,221 @@
+import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Search, Plus, Edit2, Trash2, Copy, Eye,
+  FileText, Calendar, User, ArrowUpDown
+} from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { useQuotationStore } from '../../stores/quotationStore';
+import { useUIStore } from '../../stores/uiStore';
+import { formatCurrency, formatDate } from '../../utils/formatters';
+
+export const QuotationList = ({ onEditQuotation }) => {
+  const { quotations, loadQuotation, deleteQuotation, duplicateQuotation, newQuotation } = useQuotationStore();
+  const { showSuccess } = useUIStore();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState('vchDate');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  const filteredQuotations = useMemo(() => {
+    let filtered = [...quotations];
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(q =>
+        q.party?.name?.toLowerCase().includes(query) ||
+        q.vchNo?.toString().includes(query) ||
+        q.remark?.toLowerCase().includes(query)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === 'party') {
+        aVal = a.party?.name || '';
+        bVal = b.party?.name || '';
+      } else if (sortField === 'netAmount') {
+        aVal = a.totals?.netAmount || 0;
+        bVal = b.totals?.netAmount || 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      }
+      return aVal < bVal ? 1 : -1;
+    });
+
+    return filtered;
+  }, [quotations, searchQuery, sortField, sortDirection]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const handleEdit = (id) => {
+    loadQuotation(id);
+    onEditQuotation?.();
+  };
+
+  const handleDuplicate = (id) => {
+    duplicateQuotation(id);
+    showSuccess('Quotation duplicated');
+    onEditQuotation?.();
+  };
+
+  const handleDelete = (id) => {
+    deleteQuotation(id);
+    showSuccess('Quotation deleted');
+  };
+
+  const SortHeader = ({ field, children }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className="flex items-center gap-1 hover:text-accent-primary transition-colors"
+    >
+      {children}
+      {sortField === field && (
+        <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'asc' ? 'rotate-180' : ''}`} />
+      )}
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search quotations..."
+              className="w-full pl-10 pr-4 py-2 bg-surface-700 border border-surface-500 rounded-lg
+                        text-text-primary placeholder:text-text-muted
+                        focus:outline-none focus:border-accent-primary"
+            />
+          </div>
+          <span className="text-sm text-text-muted">
+            {filteredQuotations.length} quotations
+          </span>
+        </div>
+
+        <Button
+          variant="primary"
+          icon={Plus}
+          onClick={() => {
+            newQuotation();
+            onEditQuotation?.();
+          }}
+        >
+          New Quotation
+          <kbd className="kbd ml-1">⌘N</kbd>
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-surface-800 rounded-xl border border-surface-600 overflow-hidden">
+        {/* Table Header */}
+        <div className="grid grid-cols-[80px_1fr_200px_150px_120px_150px_100px] gap-4 px-4 py-3
+                      bg-surface-700 border-b border-surface-600 text-xs font-semibold
+                      text-text-secondary uppercase tracking-wide">
+          <SortHeader field="vchNo">Vch No</SortHeader>
+          <SortHeader field="party">Party</SortHeader>
+          <SortHeader field="salesman">Salesman</SortHeader>
+          <SortHeader field="vchDate">Date</SortHeader>
+          <span>Items</span>
+          <SortHeader field="netAmount">Amount</SortHeader>
+          <span>Actions</span>
+        </div>
+
+        {/* Table Body */}
+        <div className="divide-y divide-surface-700">
+          {filteredQuotations.length === 0 ? (
+            <div className="px-4 py-12 text-center text-text-muted">
+              <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>No quotations found</p>
+            </div>
+          ) : (
+            filteredQuotations.map((quotation, index) => (
+              <motion.div
+                key={quotation.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: index * 0.03 }}
+                className="grid grid-cols-[80px_1fr_200px_150px_120px_150px_100px] gap-4 px-4 py-3
+                          hover:bg-surface-700/50 transition-colors items-center"
+              >
+                <span className="font-mono text-accent-secondary font-medium">
+                  #{String(quotation.vchNo).padStart(4, '0')}
+                </span>
+
+                <div className="min-w-0">
+                  <p className="font-medium text-text-primary truncate">
+                    {quotation.party?.name || 'No party'}
+                  </p>
+                  {quotation.remark && (
+                    <p className="text-xs text-text-muted truncate">{quotation.remark}</p>
+                  )}
+                </div>
+
+                <span className="text-text-secondary text-sm">
+                  {quotation.salesman?.name || '-'}
+                </span>
+
+                <span className="text-text-secondary text-sm">
+                  {formatDate(quotation.vchDate)}
+                </span>
+
+                <span className="text-text-secondary text-sm">
+                  {quotation.lineItems?.length || 0} items
+                </span>
+
+                <span className="font-mono font-medium text-text-primary">
+                  {formatCurrency(quotation.totals?.netAmount || 0)}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleEdit(quotation.id)}
+                    className="p-1.5 rounded text-text-muted hover:text-accent-primary
+                              hover:bg-accent-primary/10 transition-colors"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDuplicate(quotation.id)}
+                    className="p-1.5 rounded text-text-muted hover:text-accent-secondary
+                              hover:bg-accent-secondary/10 transition-colors"
+                    title="Duplicate"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(quotation.id)}
+                    className="p-1.5 rounded text-text-muted hover:text-accent-danger
+                              hover:bg-accent-danger/10 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default QuotationList;
