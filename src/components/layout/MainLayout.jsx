@@ -1,78 +1,182 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import {
   Building2,
   Users,
   UserCircle,
-  Tags,
   Package,
   FileText,
+  FileCheck,
   User,
   HardDrive,
-  Settings
+  Settings,
+  LogOut,
+  ChevronDown,
+  LayoutDashboard
 } from 'lucide-react';
 import { Notifications } from './Notifications';
+import { useAuthStore } from '../../stores/authStore';
 
-const toolbarModules = [
-  { id: 'company', label: 'Company', icon: Building2, group: 'Company' },
-  { id: 'account', label: 'Account', icon: Users, group: 'Account' },
-  { id: 'salesman', label: 'Salesman', icon: UserCircle, group: 'Account' },
-  { id: 'pricelist', label: 'Price List', icon: Tags, group: 'Product' },
-  { id: 'product', label: 'Product', icon: Package, group: 'Product' },
-  { id: 'quotation', label: 'Quotation', icon: FileText, group: 'Transaction' },
-  { id: 'user', label: 'User', icon: User, group: 'Utility' },
-  { id: 'backup', label: 'Backup', icon: HardDrive, group: 'Utility' },
-  { id: 'setting', label: 'Setting', icon: Settings, group: 'Utility' },
+const toolbarGroups = [
+  {
+    id: 'home',
+    label: 'Home',
+    modules: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ]
+  },
+  {
+    id: 'company',
+    label: 'Company',
+    modules: [
+      { id: 'company', label: 'Company', icon: Building2 },
+    ]
+  },
+  {
+    id: 'account',
+    label: 'Account',
+    modules: [
+      { id: 'account', label: 'Account', icon: Users },
+      { id: 'salesman', label: 'Salesman', icon: UserCircle },
+    ]
+  },
+  {
+    id: 'product',
+    label: 'Product',
+    modules: [
+      { id: 'product', label: 'Product', icon: Package },
+    ]
+  },
+  {
+    id: 'transaction',
+    label: 'Transaction',
+    modules: [
+      { id: 'quotation', label: 'Quotation', icon: FileText },
+      { id: 'final-quotation', label: 'Final\nQuotation', icon: FileCheck },
+    ]
+  },
+  {
+    id: 'utility',
+    label: 'Utility',
+    modules: [
+      { id: 'user', label: 'User', icon: User },
+      { id: 'backup', label: 'Backup', icon: HardDrive },
+      { id: 'setting', label: 'Setting', icon: Settings },
+    ]
+  },
 ];
 
 export const MainLayout = ({ children, activeModule, onModuleChange }) => {
   const [hoveredModule, setHoveredModule] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Top Toolbar - Classic Windows Style */}
-      <div className="bg-gradient-to-b from-[#d4e4f7] to-[#c4d8ef] border-b border-[#a0b8d0] px-2 py-1">
-        <div className="flex items-end gap-1">
-          {toolbarModules.map((module) => {
-            const Icon = module.icon;
-            const isActive = activeModule === module.id;
-            const isHovered = hoveredModule === module.id;
+      {/* Ribbon Toolbar */}
+      <div className="bg-gradient-to-b from-[#d8e6f3] to-[#c8dcea] border-b border-[#9cb8d4]">
+        <div className="flex items-stretch">
+          {toolbarGroups.map((group, groupIndex) => (
+            <div
+              key={group.id}
+              className="flex flex-col"
+            >
+              {/* Module buttons */}
+              <div className={`flex items-end h-[60px] px-2 gap-1 ${groupIndex > 0 ? 'border-l border-[#b0c4d8]' : ''}`}>
+                {group.modules.map((module) => {
+                  const Icon = module.icon;
+                  const isActive = activeModule === module.id;
+                  const isHovered = hoveredModule === module.id;
 
-            return (
-              <button
-                key={module.id}
-                onClick={() => onModuleChange(module.id)}
-                onMouseEnter={() => setHoveredModule(module.id)}
-                onMouseLeave={() => setHoveredModule(null)}
-                className={`
-                  toolbar-btn flex flex-col items-center px-3 py-1 min-w-[60px]
-                  ${isActive ? 'active' : ''}
-                `}
-              >
-                <Icon
-                  className={`w-7 h-7 mb-0.5 ${isActive ? 'text-accent-primary' : 'text-text-secondary'}`}
-                  strokeWidth={1.5}
-                />
-                <span className="text-[11px] font-medium">{module.label}</span>
-              </button>
-            );
-          })}
+                  return (
+                    <button
+                      key={module.id}
+                      onClick={() => onModuleChange(module.id)}
+                      onMouseEnter={() => setHoveredModule(module.id)}
+                      onMouseLeave={() => setHoveredModule(null)}
+                      className={`
+                        flex flex-col items-center justify-center px-2 py-1 min-w-[52px] h-[54px] rounded
+                        transition-all duration-100
+                        ${isActive
+                          ? 'bg-gradient-to-b from-[#ffefc8] to-[#ffe8a0] border border-[#d4a800] shadow-sm'
+                          : isHovered
+                            ? 'bg-gradient-to-b from-white/60 to-white/30 border border-[#c0d0e4]'
+                            : 'border border-transparent'
+                        }
+                      `}
+                    >
+                      <div className={`
+                        w-7 h-7 flex items-center justify-center
+                        ${isActive ? 'text-amber-700' : 'text-slate-600'}
+                      `}>
+                        <Icon className="w-5 h-5" strokeWidth={1.5} />
+                      </div>
+                      <span className={`
+                        text-[10px] leading-tight text-center whitespace-pre-line mt-0.5
+                        ${isActive ? 'text-amber-800 font-medium' : 'text-slate-700'}
+                      `}>
+                        {module.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Group label */}
+              <div className={`bg-gradient-to-b from-[#c4d8ec] to-[#b8cce0] border-t border-[#a8bcd4] px-2 py-0.5 text-center ${groupIndex > 0 ? 'border-l border-[#b0c4d8]' : ''}`}>
+                <span className="text-[10px] text-slate-600">{group.label}</span>
+              </div>
+            </div>
+          ))}
+
+          {/* Spacer */}
+          <div className="flex-1 flex flex-col border-l border-[#b0c4d8]">
+            <div className="flex-1 h-[60px]" />
+            <div className="bg-gradient-to-b from-[#c4d8ec] to-[#b8cce0] border-t border-[#a8bcd4] h-[19px]" />
+          </div>
+
+          {/* User Menu */}
+          <div className="flex flex-col">
+            <div className="flex-1 h-[60px] flex items-center px-3">
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/40 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-xs font-medium text-slate-700 hidden sm:block">{user?.name || 'User'}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-500" />
+                </button>
+
+                {showUserMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50">
+                      <div className="px-3 py-2 border-b border-slate-100">
+                        <div className="text-sm font-medium text-slate-800">{user?.name}</div>
+                        <div className="text-xs text-slate-500">{user?.email}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          logout();
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="bg-gradient-to-b from-[#c4d8ec] to-[#b8cce0] border-t border-[#a8bcd4] h-[19px]" />
+          </div>
         </div>
-
-        {/* Module group labels */}
-        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-text-muted px-1">
-          <span className="w-[60px] text-center">Company</span>
-          <span className="w-[130px] text-center border-l border-[#b0c4d8] pl-2">Account</span>
-          <span className="w-[130px] text-center border-l border-[#b0c4d8] pl-2">Product</span>
-          <span className="w-[60px] text-center border-l border-[#b0c4d8] pl-2">Transaction</span>
-          <span className="flex-1 text-center border-l border-[#b0c4d8] pl-2">Utility</span>
-        </div>
-      </div>
-
-      {/* Tab Bar */}
-      <div className="bg-[#e0e8f0] border-b border-[#a0b8d0] px-2 flex items-end">
-        <button className="tab-btn">Quotation List</button>
-        <button className="tab-btn active">Add Quotation</button>
       </div>
 
       {/* Main Content Area */}

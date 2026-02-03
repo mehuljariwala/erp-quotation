@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import {
-  Mail, Plus, Percent, Clipboard, Trash2, Save,
+  Mail, Plus, Percent, Trash2, Save,
   Printer, RotateCcw, X, FileText, User, Calendar, Hash
 } from 'lucide-react';
 import { LineItemGrid } from './LineItemGrid';
 import { ProductSelector } from './ProductSelector';
-import { SelectModal } from './SelectModal';
+import { PartyAutocomplete } from '../ui/PartyAutocomplete';
+import { SmartAutocomplete } from '../ui/SmartAutocomplete';
 import { useQuotationStore } from '../../stores/quotationStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useMasterStore } from '../../stores/masterStore';
@@ -25,6 +25,10 @@ const FormField = ({ label, children, icon: Icon }) => (
 
 const TableInput = ({ value, onChange, placeholder, readOnly, className = '', onKeyDown, inputRef, type = 'text', onArrowLeft, onArrowRight }) => {
   const handleKeyDown = (e) => {
+    if ((e.key === 'Tab' || e.key === 'Enter') && onKeyDown) {
+      onKeyDown(e);
+      return;
+    }
     if (e.key === 'ArrowLeft' && onArrowLeft) {
       const input = e.target;
       if (input.selectionStart === 0) {
@@ -62,45 +66,6 @@ const TableInput = ({ value, onChange, placeholder, readOnly, className = '', on
   );
 };
 
-const ModalTriggerInput = ({ value, onOpenModal, placeholder, onKeyDown, inputRef, onTab, onArrowLeft, onArrowRight }) => {
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      onOpenModal();
-    } else if (e.key === 'Tab') {
-      e.preventDefault();
-      onTab?.();
-    } else if (e.key === 'ArrowLeft' && onArrowLeft) {
-      e.preventDefault();
-      onArrowLeft();
-    } else if (e.key === 'ArrowRight' && onArrowRight) {
-      e.preventDefault();
-      onArrowRight();
-    } else if (onKeyDown) {
-      onKeyDown(e);
-    }
-  };
-
-  const handleClick = () => {
-    onOpenModal();
-  };
-
-  return (
-    <input
-      ref={inputRef}
-      type="text"
-      value={value?.name || ''}
-      readOnly
-      onKeyDown={handleKeyDown}
-      onClick={handleClick}
-      placeholder={placeholder}
-      className="w-full h-9 px-3 text-[13px] bg-white border border-[#e2e8f0] rounded-md
-                 focus:bg-[#fef9c3] focus:border-[#3b82f6] focus:outline-none focus:ring-2 focus:ring-blue-100
-                 cursor-pointer transition-all duration-150"
-    />
-  );
-};
-
 export const QuotationForm = ({ onBackToList }) => {
   const {
     currentQuotation,
@@ -129,10 +94,6 @@ export const QuotationForm = ({ onBackToList }) => {
 
   const { parties, salesmen, priceLists } = useMasterStore();
   const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [showPartyModal, setShowPartyModal] = useState(false);
-  const [showReferenceModal, setShowReferenceModal] = useState(false);
-  const [showSalesmanModal, setShowSalesmanModal] = useState(false);
-  const [showPriceListModal, setShowPriceListModal] = useState(false);
 
   const partyRef = useRef(null);
   const referenceRef = useRef(null);
@@ -148,36 +109,21 @@ export const QuotationForm = ({ onBackToList }) => {
 
   const handlePartySelect = useCallback((party) => {
     setParty(party);
-    setShowPartyModal(false);
-    referenceRef.current?.focus();
   }, [setParty]);
 
   const handleReferenceSelect = useCallback((ref) => {
     setReference(ref);
-    setShowReferenceModal(false);
-    salesmanRef.current?.focus();
   }, [setReference]);
 
   const handleSalesmanSelect = useCallback((salesman) => {
     setSalesman(salesman);
-    setShowSalesmanModal(false);
-    priceListRef.current?.focus();
   }, [setSalesman]);
 
   const handlePriceListSelect = useCallback((priceList) => {
-    setPriceList(priceList.name);
-    setShowPriceListModal(false);
-    emailRef.current?.focus();
+    setPriceList(priceList?.name || null);
   }, [setPriceList]);
 
-  const handleRemarkKeyDown = (e) => {
-    if (e.key === 'Tab' || e.key === 'Enter') {
-      e.preventDefault();
-      lineItemGridRef.current?.focusFirstCell?.();
-    }
-  };
-
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!currentQuotation.party) {
       showError('Please select a party');
       return;
@@ -186,9 +132,11 @@ export const QuotationForm = ({ onBackToList }) => {
       showError('Please add at least one item');
       return;
     }
-    const success = saveQuotation();
-    if (success) {
-      showSuccess('Save Successfully');
+    const result = await saveQuotation();
+    if (result.success) {
+      showSuccess('Saved Successfully');
+    } else {
+      showError(result.error || 'Failed to save quotation');
     }
   }, [currentQuotation, saveQuotation, showSuccess, showError]);
 
@@ -228,9 +176,7 @@ export const QuotationForm = ({ onBackToList }) => {
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <Hash className="w-4 h-4 text-[#64748b]" />
-              <span className="font-mono font-semibold text-[#3b82f6]">
-                {String(currentQuotation.vchNo).padStart(4, '0')}
-              </span>
+              <span className="font-mono font-semibold text-[#3b82f6]">{String(currentQuotation.vchNo).padStart(4, '0')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-[#64748b]" />
@@ -241,61 +187,68 @@ export const QuotationForm = ({ onBackToList }) => {
 
         {/* Form Fields */}
         <div className="p-4">
-          <div className="grid grid-cols-12 gap-4">
-            {/* Row 1 */}
+          <div className="grid grid-cols-12 gap-x-4 gap-y-3">
+            {/* Row 1: Party | Reference | Salesman | Price List */}
             <div className="col-span-4">
               <FormField label="Party" icon={User}>
-                <ModalTriggerInput
-                  inputRef={partyRef}
+                <PartyAutocomplete
+                  ref={partyRef}
                   value={currentQuotation.party}
-                  onOpenModal={() => setShowPartyModal(true)}
+                  onChange={handlePartySelect}
                   placeholder="Select party..."
-                  onTab={() => referenceRef.current?.focus()}
-                  onArrowRight={() => referenceRef.current?.focus()}
+                  onNext={() => referenceRef.current?.focus()}
                 />
               </FormField>
             </div>
             <div className="col-span-4">
               <FormField label="Reference">
-                <ModalTriggerInput
-                  inputRef={referenceRef}
+                <PartyAutocomplete
+                  ref={referenceRef}
                   value={currentQuotation.reference}
-                  onOpenModal={() => setShowReferenceModal(true)}
+                  onChange={handleReferenceSelect}
                   placeholder="Select reference..."
-                  onTab={() => salesmanRef.current?.focus()}
-                  onArrowLeft={() => partyRef.current?.focus()}
-                  onArrowRight={() => salesmanRef.current?.focus()}
+                  searchType="Refrence"
+                  onNext={() => salesmanRef.current?.focus()}
+                  onPrev={() => partyRef.current?.focus()}
                 />
               </FormField>
             </div>
             <div className="col-span-2">
               <FormField label="Salesman">
-                <ModalTriggerInput
-                  inputRef={salesmanRef}
+                <SmartAutocomplete
+                  ref={salesmanRef}
                   value={currentQuotation.salesman}
-                  onOpenModal={() => setShowSalesmanModal(true)}
+                  onChange={handleSalesmanSelect}
+                  options={salesmen}
+                  searchFields={['name', 'code', 'phone', 'territory']}
+                  type="salesman"
                   placeholder="Select..."
-                  onTab={() => priceListRef.current?.focus()}
-                  onArrowLeft={() => referenceRef.current?.focus()}
-                  onArrowRight={() => priceListRef.current?.focus()}
+                  entityName="salesmen"
+                  minWidth={340}
+                  onNext={() => priceListRef.current?.focus()}
+                  onPrev={() => referenceRef.current?.focus()}
                 />
               </FormField>
             </div>
             <div className="col-span-2">
               <FormField label="Price List">
-                <ModalTriggerInput
-                  inputRef={priceListRef}
-                  value={{ name: currentQuotation.priceList }}
-                  onOpenModal={() => setShowPriceListModal(true)}
+                <SmartAutocomplete
+                  ref={priceListRef}
+                  value={priceLists.find(p => p.name === currentQuotation.priceList) || null}
+                  onChange={handlePriceListSelect}
+                  options={priceLists}
+                  searchFields={['name', 'code', 'description']}
+                  type="priceList"
                   placeholder="Select..."
-                  onTab={() => emailRef.current?.focus()}
-                  onArrowLeft={() => salesmanRef.current?.focus()}
-                  onArrowRight={() => emailRef.current?.focus()}
+                  entityName="price lists"
+                  minWidth={280}
+                  onNext={() => emailRef.current?.focus()}
+                  onPrev={() => salesmanRef.current?.focus()}
                 />
               </FormField>
             </div>
 
-            {/* Row 2 */}
+            {/* Row 2: Email | Remark */}
             <div className="col-span-4">
               <FormField label="Email" icon={Mail}>
                 <TableInput
@@ -303,7 +256,16 @@ export const QuotationForm = ({ onBackToList }) => {
                   value={currentQuotation.email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="email@example.com"
-                  onArrowRight={() => remarkRef.current?.focus()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' || e.key === 'Enter') {
+                      e.preventDefault();
+                      if (e.shiftKey) {
+                        priceListRef.current?.focus();
+                      } else {
+                        remarkRef.current?.focus();
+                      }
+                    }
+                  }}
                 />
               </FormField>
             </div>
@@ -313,9 +275,17 @@ export const QuotationForm = ({ onBackToList }) => {
                   inputRef={remarkRef}
                   value={currentQuotation.remark}
                   onChange={(e) => setRemark(e.target.value)}
-                  onKeyDown={handleRemarkKeyDown}
                   placeholder="Add notes or remarks..."
-                  onArrowLeft={() => emailRef.current?.focus()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' || e.key === 'Enter') {
+                      e.preventDefault();
+                      if (e.shiftKey) {
+                        emailRef.current?.focus();
+                      } else {
+                        lineItemGridRef.current?.focusFirstCell?.();
+                      }
+                    }
+                  }}
                 />
               </FormField>
             </div>
@@ -385,10 +355,14 @@ export const QuotationForm = ({ onBackToList }) => {
             </button>
             <button
               className="win-btn win-btn-danger"
-              onClick={() => {
+              onClick={async () => {
                 if (currentQuotation.id) {
-                  deleteQuotation(currentQuotation.id);
-                  showSuccess('Quotation deleted');
+                  const result = await deleteQuotation(currentQuotation.id);
+                  if (result.success) {
+                    showSuccess('Quotation deleted');
+                  } else {
+                    showError(result.error || 'Failed to delete');
+                  }
                 }
               }}
               disabled={!currentQuotation.id}
@@ -409,69 +383,12 @@ export const QuotationForm = ({ onBackToList }) => {
       </div>
 
       {/* Modals */}
-      <SelectModal
-        isOpen={showPartyModal}
-        onClose={() => setShowPartyModal(false)}
-        onSelect={handlePartySelect}
-        title="Select Party"
-        data={parties}
-        columns={[
-          { key: 'name', header: 'Name', flex: 1 },
-          { key: 'alias', header: 'Alias', width: '100px' },
-          { key: 'city', header: 'City', width: '100px' }
-        ]}
-        searchPlaceholder="Search party..."
-        newButtonText="New Party"
-      />
-
-      <SelectModal
-        isOpen={showReferenceModal}
-        onClose={() => setShowReferenceModal(false)}
-        onSelect={handleReferenceSelect}
-        title="Select Reference"
-        data={parties}
-        columns={[
-          { key: 'name', header: 'Name', flex: 1 },
-          { key: 'alias', header: 'Alias', width: '100px' },
-          { key: 'city', header: 'City', width: '100px' }
-        ]}
-        searchPlaceholder="Search reference..."
-        newButtonText="New Reference"
-      />
-
-      <SelectModal
-        isOpen={showSalesmanModal}
-        onClose={() => setShowSalesmanModal(false)}
-        onSelect={handleSalesmanSelect}
-        title="Select Salesman"
-        data={salesmen}
-        columns={[
-          { key: 'name', header: 'Name', flex: 1 },
-          { key: 'phone', header: 'Phone', width: '120px' }
-        ]}
-        searchPlaceholder="Search salesman..."
-        newButtonText="New Salesman"
-      />
-
-      <SelectModal
-        isOpen={showPriceListModal}
-        onClose={() => setShowPriceListModal(false)}
-        onSelect={handlePriceListSelect}
-        title="Select Price List"
-        data={priceLists}
-        columns={[
-          { key: 'name', header: 'Name', flex: 1 },
-          { key: 'description', header: 'Description', width: '200px' }
-        ]}
-        searchPlaceholder="Search price list..."
-        newButtonText="New Price List"
-      />
-
       <ProductSelector
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
         onSelect={handleProductSelect}
         priceList={currentQuotation.priceList}
+        priceId={currentQuotation.priceId}
       />
 
       {showDiscountModal && (

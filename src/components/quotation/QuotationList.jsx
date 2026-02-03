@@ -1,21 +1,41 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Search, Plus, Edit2, Trash2, Copy, Eye,
-  FileText, Calendar, User, ArrowUpDown
+  Search, Plus, Edit2, Trash2, Copy, RefreshCw,
+  FileText, ArrowUpDown, Loader2
 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 import { useQuotationStore } from '../../stores/quotationStore';
 import { useUIStore } from '../../stores/uiStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 export const QuotationList = ({ onEditQuotation }) => {
-  const { quotations, loadQuotation, deleteQuotation, duplicateQuotation, newQuotation } = useQuotationStore();
-  const { showSuccess } = useUIStore();
+  const {
+    quotations,
+    loadQuotation,
+    deleteQuotation,
+    duplicateQuotation,
+    newQuotation,
+    fetchQuotations,
+    isLoading
+  } = useQuotationStore();
+  const { showSuccess, showError } = useUIStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('vchDate');
   const [sortDirection, setSortDirection] = useState('desc');
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
+
+  const handleRefresh = async () => {
+    const result = await fetchQuotations();
+    if (result.success) {
+      showSuccess('Quotations refreshed');
+    } else {
+      showError(result.error || 'Failed to fetch quotations');
+    }
+  };
 
   const filteredQuotations = useMemo(() => {
     let filtered = [...quotations];
@@ -59,9 +79,13 @@ export const QuotationList = ({ onEditQuotation }) => {
     }
   };
 
-  const handleEdit = (id) => {
-    loadQuotation(id);
-    onEditQuotation?.();
+  const handleEdit = async (id) => {
+    const result = await loadQuotation(id);
+    if (result.success) {
+      onEditQuotation?.();
+    } else {
+      showError(result.error || 'Failed to load quotation');
+    }
   };
 
   const handleDuplicate = (id) => {
@@ -70,9 +94,13 @@ export const QuotationList = ({ onEditQuotation }) => {
     onEditQuotation?.();
   };
 
-  const handleDelete = (id) => {
-    deleteQuotation(id);
-    showSuccess('Quotation deleted');
+  const handleDelete = async (id) => {
+    const result = await deleteQuotation(id);
+    if (result.success) {
+      showSuccess('Quotation deleted');
+    } else {
+      showError(result.error || 'Failed to delete quotation');
+    }
   };
 
   const SortHeader = ({ field, children }) => (
@@ -107,6 +135,18 @@ export const QuotationList = ({ onEditQuotation }) => {
           <span className="text-sm text-text-muted">
             {filteredQuotations.length} quotations
           </span>
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="p-2 rounded-lg text-text-muted hover:text-accent-primary hover:bg-surface-700 transition-colors disabled:opacity-50"
+            title="Refresh"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         <Button
@@ -139,7 +179,12 @@ export const QuotationList = ({ onEditQuotation }) => {
 
         {/* Table Body */}
         <div className="divide-y divide-surface-700">
-          {filteredQuotations.length === 0 ? (
+          {isLoading && quotations.length === 0 ? (
+            <div className="px-4 py-12 text-center text-text-muted">
+              <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin text-accent-primary" />
+              <p>Loading quotations...</p>
+            </div>
+          ) : filteredQuotations.length === 0 ? (
             <div className="px-4 py-12 text-center text-text-muted">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No quotations found</p>

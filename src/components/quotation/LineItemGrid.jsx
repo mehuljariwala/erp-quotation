@@ -1,29 +1,126 @@
 import { useState, useCallback, useRef, useEffect, memo, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
-import { Trash2, Plus, Package, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Plus, Package, Building2, Tag, Image as ImageIcon } from 'lucide-react';
 import { useQuotationStore } from '../../stores/quotationStore';
 import { useUIStore } from '../../stores/uiStore';
 import { formatCurrency } from '../../utils/formatters';
 
 const columnConfig = [
-  { id: 'rowNum', header: 'Sr', width: 35, editable: false, align: 'center' },
-  { id: 'area', header: 'Area', width: 90, editable: true, type: 'text' },
-  { id: 'priceListCol', header: 'PriceList', width: 80, editable: false, type: 'text' },
-  { id: 'skuCode', header: 'SKU Code', width: 90, editable: true, type: 'text' },
-  { id: 'image', header: 'Image', width: 50, editable: false, type: 'image', align: 'center' },
-  { id: 'description', header: 'Desc', width: 140, editable: true, type: 'text' },
-  { id: 'product', header: 'Product', width: 150, editable: true, type: 'product' },
-  { id: 'mrp', header: 'MRP', width: 80, editable: false, type: 'currency', align: 'right' },
-  { id: 'qty', header: 'Qty', width: 55, editable: true, type: 'number', align: 'right' },
-  { id: 'grossAmount', header: 'GAmt.', width: 85, editable: false, type: 'currency', align: 'right' },
-  { id: 'discPercent', header: 'Disc(%)', width: 60, editable: true, type: 'percent', align: 'right' },
-  { id: 'discAmount', header: 'DiscAmt.', width: 80, editable: false, type: 'currency', align: 'right' },
-  { id: 'taxableAmount', header: 'GNAmt', width: 85, editable: false, type: 'currency', align: 'right' },
-  { id: 'gstPercent', header: 'GST(%)', width: 55, editable: false, type: 'percent', align: 'right' },
-  { id: 'gstAmount', header: 'GST Amt', width: 80, editable: false, type: 'currency', align: 'right' },
-  { id: 'netAmount', header: 'NetAmt', width: 90, editable: false, type: 'currency', align: 'right' },
-  { id: 'actions', header: '', width: 35, editable: false, align: 'center' }
+  { id: 'rowNum', header: '', width: 35, editable: false, align: 'center' },
+  { id: 'area', header: 'Area', width: 120, editable: true, type: 'text' },
+  { id: 'priceList', header: 'PriceList', width: 100, editable: false, type: 'text' },
+  { id: 'skuCode', header: 'SKU Code', width: 110, editable: true, type: 'text' },
+  { id: 'image', header: 'Image', width: 85, editable: false, type: 'image', align: 'center' },
+  { id: 'description', header: 'Desc', width: 150, editable: false, type: 'text' },
+  { id: 'product', header: 'Product', width: 220, editable: true, type: 'product' },
+  { id: 'mrp', header: 'MRP', width: 100, editable: true, type: 'currency', align: 'right' },
+  { id: 'qty', header: 'Qty', width: 70, editable: true, type: 'number', align: 'right' },
+  { id: 'grossAmount', header: 'GAmt.', width: 110, editable: false, type: 'currency', align: 'right' },
+  { id: 'discPercent', header: 'Disc(%)', width: 80, editable: true, type: 'percent', align: 'right' },
+  { id: 'discAmount', header: 'DiscAmt.', width: 100, editable: false, type: 'currency', align: 'right' },
+  { id: 'gstPercent', header: 'GST(%)', width: 75, editable: false, type: 'percent', align: 'right' },
+  { id: 'gstAmount', header: 'GST Amt', width: 100, editable: false, type: 'currency', align: 'right' },
+  { id: 'netAmount', header: 'NetAmt.', width: 110, editable: false, type: 'currency', align: 'right' },
+  { id: 'actions', header: '', width: 45, editable: false, align: 'center' }
 ];
+
+const ProductInfoPopover = ({ product, position, onClose }) => {
+  if (!product || !position) return null;
+
+  return createPortal(
+    <div
+      className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-slate-200 w-72 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {/* Header with Image */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-3">
+        <div className="flex items-start gap-3">
+          <div className="w-16 h-16 rounded-lg bg-white shadow flex items-center justify-center overflow-hidden shrink-0">
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.name || 'Product'}
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+              />
+            ) : null}
+            <div className={`w-full h-full items-center justify-center bg-slate-100 ${product.imageUrl ? 'hidden' : 'flex'}`}>
+              <Package className="w-6 h-6 text-slate-400" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-white truncate">
+              {product.name || 'Unnamed Product'}
+            </h3>
+            <p className="text-xs text-blue-100 mt-0.5 font-mono">
+              {product.skuCode || 'No SKU'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="p-3 space-y-2">
+        {/* Company & Category */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-slate-50 rounded-lg p-2">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-0.5">
+              <Building2 className="w-3 h-3" />
+              <span className="text-[10px] uppercase tracking-wide">Company</span>
+            </div>
+            <p className="text-xs font-medium text-slate-700 truncate">
+              {product.companyName || '—'}
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-2">
+            <div className="flex items-center gap-1.5 text-slate-400 mb-0.5">
+              <Tag className="w-3 h-3" />
+              <span className="text-[10px] uppercase tracking-wide">Category</span>
+            </div>
+            <p className="text-xs font-medium text-slate-700 truncate">
+              {product.categoryName || '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Pricing Row */}
+        <div className="flex items-center justify-between bg-blue-50 rounded-lg px-3 py-2">
+          <div className="text-center">
+            <p className="text-[10px] text-slate-400 uppercase">MRP</p>
+            <p className="text-sm font-bold text-slate-700">₹{product.mrp?.toFixed(2) || '0.00'}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-slate-400 uppercase">GST</p>
+            <p className="text-sm font-semibold text-amber-600">{product.taxPer || 0}%</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-slate-400 uppercase">Disc</p>
+            <p className="text-sm font-semibold text-rose-500">{product.discPer || 0}%</p>
+          </div>
+        </div>
+
+        {/* HSN Code */}
+        {product.hsnCode && (
+          <div className="flex items-center justify-between text-xs px-1">
+            <span className="text-slate-400">HSN Code</span>
+            <span className="font-mono text-slate-600">{product.hsnCode}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer hint */}
+      <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-center">
+        <p className="text-[10px] text-slate-400">Press Enter to change product</p>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 const EditableCell = memo(({
   value,
@@ -36,10 +133,14 @@ const EditableCell = memo(({
   onEndEdit,
   onKeyDown,
   isProductCell,
-  onOpenProductModal
+  onOpenProductModal,
+  isSkuCodeCell,
+  onSkuCodeFocus
 }) => {
   const inputRef = useRef(null);
+  const cellRef = useRef(null);
   const [localValue, setLocalValue] = useState(value ?? '');
+  const [popoverPosition, setPopoverPosition] = useState(null);
   const wasEditingRef = useRef(false);
 
   useEffect(() => {
@@ -52,6 +153,28 @@ const EditableCell = memo(({
     }
     wasEditingRef.current = isEditing;
   }, [isEditing, value]);
+
+  useEffect(() => {
+    if (isProductCell && isFocused && value && cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect();
+      const popoverWidth = 288;
+      const popoverHeight = 280;
+
+      let left = rect.left;
+      let top = rect.bottom + 4;
+
+      if (left + popoverWidth > window.innerWidth - 16) {
+        left = window.innerWidth - popoverWidth - 16;
+      }
+      if (top + popoverHeight > window.innerHeight - 16) {
+        top = rect.top - popoverHeight - 4;
+      }
+
+      setPopoverPosition({ top, left });
+    } else {
+      setPopoverPosition(null);
+    }
+  }, [isProductCell, isFocused, value]);
 
   const formatValue = useCallback(() => {
     if (value === null || value === undefined) return '';
@@ -85,12 +208,15 @@ const EditableCell = memo(({
   };
 
   if (type === 'image') {
+    const imageUrl = value?.imageUrl || value;
     return (
-      <div className="h-full flex items-center justify-center">
-        {value ? (
-          <img src={value} alt="" className="w-6 h-6 object-cover rounded-sm shadow-sm" />
+      <div className="h-full flex items-center justify-center p-1">
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm" />
         ) : (
-          <ImageIcon className="w-4 h-4 text-slate-300" />
+          <div className="w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+            <ImageIcon className="w-5 h-5 text-slate-300" />
+          </div>
         )}
       </div>
     );
@@ -98,22 +224,36 @@ const EditableCell = memo(({
 
   if (isProductCell) {
     return (
-      <div
-        onClick={onOpenProductModal}
-        onKeyDown={(e) => e.key === 'Enter' && onOpenProductModal()}
-        tabIndex={0}
-        className={`
-          h-full px-1.5 flex items-center cursor-pointer transition-all duration-100
-          ${isFocused ? 'bg-blue-50 ring-2 ring-blue-400 ring-inset rounded-sm' : 'hover:bg-slate-50'}
-        `}
-      >
-        <div className="flex items-center gap-1.5 w-full">
-          <Package className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span className={`truncate text-xs ${value ? 'text-slate-700' : 'text-slate-400 italic'}`}>
-            {value?.name || 'Select...'}
-          </span>
+      <>
+        <div
+          ref={cellRef}
+          onDoubleClick={onOpenProductModal}
+          onKeyDown={(e) => e.key === 'Enter' && onOpenProductModal()}
+          tabIndex={0}
+          className={`
+            h-full px-1.5 flex items-center cursor-pointer transition-all duration-100
+            ${isFocused ? 'bg-blue-50 ring-2 ring-blue-400 ring-inset rounded-sm' : 'hover:bg-slate-50'}
+          `}
+        >
+          {value ? (
+            <span className="truncate text-xs font-medium text-slate-700">
+              {value.name}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1.5 w-full">
+              <Package className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="truncate text-xs text-slate-400 italic">Select...</span>
+            </div>
+          )}
         </div>
-      </div>
+        {popoverPosition && (
+          <ProductInfoPopover
+            product={value}
+            position={popoverPosition}
+            onClose={() => setPopoverPosition(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -134,9 +274,16 @@ const EditableCell = memo(({
     );
   }
 
+  const handleCellFocus = () => {
+    if (isSkuCodeCell && onSkuCodeFocus) {
+      onSkuCodeFocus();
+    }
+  };
+
   return (
     <div
       onClick={onStartEdit}
+      onFocus={handleCellFocus}
       onKeyDown={(e) => e.key === 'Enter' && onStartEdit()}
       tabIndex={0}
       className={`
@@ -179,7 +326,7 @@ const GridRow = memo(({
         flex items-stretch border-b border-slate-100 transition-colors duration-100
         ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}
       `}
-      style={{ height: '32px' }}
+      style={{ height: '64px' }}
     >
       {columnConfig.map((col) => {
         const isEditing = editingCell?.rowId === item.id && editingCell?.columnId === col.id;
@@ -193,18 +340,6 @@ const GridRow = memo(({
               style={{ width: col.width, minWidth: col.width }}
             >
               {rowIndex + 1}
-            </div>
-          );
-        }
-
-        if (col.id === 'priceListCol') {
-          return (
-            <div
-              key={col.id}
-              className="flex items-center px-1.5 text-xs text-slate-500 border-r border-slate-100"
-              style={{ width: col.width, minWidth: col.width }}
-            >
-              {priceList || '-'}
             </div>
           );
         }
@@ -226,6 +361,15 @@ const GridRow = memo(({
           );
         }
 
+        let cellValue = item[col.id];
+        if (col.id === 'image') {
+          cellValue = item.product;
+        } else if (col.id === 'description') {
+          cellValue = item.product?.remark1 || item.product?.description || '';
+        } else if (col.id === 'priceList') {
+          cellValue = priceList || '---';
+        }
+
         return (
           <div
             key={col.id}
@@ -234,12 +378,13 @@ const GridRow = memo(({
             onClick={() => onCellFocus(item.id, col.id)}
           >
             <EditableCell
-              value={col.id === 'image' ? item.product?.image : item[col.id]}
+              value={cellValue}
               type={col.type}
               align={col.align}
               isEditing={isEditing && col.editable}
               isFocused={isFocused}
               isProductCell={col.id === 'product'}
+              isSkuCodeCell={col.id === 'skuCode'}
               onChange={(value) => {
                 if (col.id === 'skuCode') {
                   updateLineItem(item.id, 'skuCode', value);
@@ -251,6 +396,7 @@ const GridRow = memo(({
               onEndEdit={onEndEdit}
               onKeyDown={(e) => onCellKeyDown(e, item.id, col.id)}
               onOpenProductModal={() => onOpenProductModal(item.id)}
+              onSkuCodeFocus={() => onOpenProductModal(item.id)}
             />
           </div>
         );
@@ -266,7 +412,8 @@ export const LineItemGrid = forwardRef((props, ref) => {
     currentQuotation,
     addLineItem,
     updateLineItem,
-    deleteLineItem
+    deleteLineItem,
+    setProductFromSku
   } = useQuotationStore();
   const { openProductModal } = useUIStore();
 
@@ -318,13 +465,20 @@ export const LineItemGrid = forwardRef((props, ref) => {
   const handleCellFocus = useCallback((rowId, columnId) => {
     setSelectedRowId(rowId);
     setFocusedCell({ rowId, columnId });
-  }, []);
+    if (columnId === 'skuCode') {
+      openProductModal(rowId);
+    }
+  }, [openProductModal]);
 
   const handleStartEdit = useCallback((rowId, columnId) => {
     setSelectedRowId(rowId);
     setFocusedCell({ rowId, columnId });
-    setEditingCell({ rowId, columnId });
-  }, []);
+    if (columnId === 'skuCode') {
+      openProductModal(rowId);
+    } else {
+      setEditingCell({ rowId, columnId });
+    }
+  }, [openProductModal]);
 
   const handleEndEdit = useCallback(() => {
     setEditingCell(null);
@@ -352,7 +506,19 @@ export const LineItemGrid = forwardRef((props, ref) => {
         e.preventDefault();
 
         if (columnId === 'skuCode') {
-          openProductModal(rowId);
+          const item = lineItems.find(i => i.id === rowId);
+          if (item?.skuCode) {
+            setProductFromSku(rowId, item.skuCode).then(found => {
+              if (found) {
+                setFocusedCell({ rowId, columnId: 'qty' });
+                setEditingCell({ rowId, columnId: 'qty' });
+              } else {
+                openProductModal(rowId);
+              }
+            });
+          } else {
+            openProductModal(rowId);
+          }
           return;
         }
 
@@ -461,7 +627,7 @@ export const LineItemGrid = forwardRef((props, ref) => {
         break;
       }
     }
-  }, [lineItems, handleEndEdit, editingCell, openProductModal, handleAddRow]);
+  }, [lineItems, handleEndEdit, editingCell, openProductModal, handleAddRow, setProductFromSku]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -549,53 +715,49 @@ export const LineItemGrid = forwardRef((props, ref) => {
       {lineItems.length > 0 && (
         <div className="flex shrink-0 bg-gradient-to-r from-slate-50 to-blue-50 border-t-2 border-slate-200" style={{ minWidth: totalWidth }}>
           {/* Sr */}
-          <div className="px-2 py-2 text-xs font-bold text-slate-600 text-center border-r border-slate-200" style={{ width: 35 }}>
+          <div className="px-1 py-2 text-xs font-bold text-slate-600 text-center border-r border-slate-200" style={{ width: 35 }}>
             {lineItems.length}
           </div>
           {/* Area - "Total" label */}
-          <div className="px-2 py-2 text-xs font-bold text-slate-700 uppercase tracking-wide border-r border-slate-200" style={{ width: 90 }}>
+          <div className="px-2 py-2 text-xs font-bold text-slate-700 uppercase tracking-wide border-r border-slate-200" style={{ width: 120 }}>
             Total
           </div>
           {/* PriceList */}
-          <div className="border-r border-slate-200" style={{ width: 80 }} />
+          <div className="border-r border-slate-200" style={{ width: 100 }} />
           {/* SKU Code */}
-          <div className="border-r border-slate-200" style={{ width: 90 }} />
+          <div className="border-r border-slate-200" style={{ width: 110 }} />
           {/* Image */}
-          <div className="border-r border-slate-200" style={{ width: 50 }} />
+          <div className="border-r border-slate-200" style={{ width: 85 }} />
           {/* Desc */}
-          <div className="border-r border-slate-200" style={{ width: 140 }} />
-          {/* Product */}
           <div className="border-r border-slate-200" style={{ width: 150 }} />
+          {/* Product */}
+          <div className="border-r border-slate-200" style={{ width: 220 }} />
           {/* MRP */}
-          <div className="border-r border-slate-200" style={{ width: 80 }} />
+          <div className="border-r border-slate-200" style={{ width: 100 }} />
           {/* Qty */}
-          <div className="border-r border-slate-200" style={{ width: 55 }} />
+          <div className="border-r border-slate-200" style={{ width: 70 }} />
           {/* GAmt */}
-          <div className="px-1 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 85 }}>
+          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 110 }}>
             {formatCurrency(totals.grossAmount, { showSymbol: false })}
           </div>
           {/* Disc% */}
-          <div className="border-r border-slate-200" style={{ width: 60 }} />
+          <div className="border-r border-slate-200" style={{ width: 80 }} />
           {/* DiscAmt */}
-          <div className="px-1 py-2 text-xs font-mono font-semibold text-right text-red-500 border-r border-slate-200" style={{ width: 80 }}>
+          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-red-500 border-r border-slate-200" style={{ width: 100 }}>
             -{formatCurrency(totals.discountAmount, { showSymbol: false })}
           </div>
-          {/* GNAmt */}
-          <div className="px-1 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 85 }}>
-            {formatCurrency(totals.taxableAmount, { showSymbol: false })}
-          </div>
           {/* GST% */}
-          <div className="border-r border-slate-200" style={{ width: 55 }} />
+          <div className="border-r border-slate-200" style={{ width: 75 }} />
           {/* GST Amt */}
-          <div className="px-1 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 80 }}>
+          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 100 }}>
             {formatCurrency(totals.gstAmount, { showSymbol: false })}
           </div>
           {/* NetAmt */}
-          <div className="px-1 py-2 text-xs font-mono font-bold text-right text-blue-600" style={{ width: 90 }}>
+          <div className="px-2 py-2 text-xs font-mono font-bold text-right text-blue-600" style={{ width: 110 }}>
             {formatCurrency(totals.netAmount, { showSymbol: false })}
           </div>
           {/* Actions */}
-          <div style={{ width: 35 }} />
+          <div style={{ width: 45 }} />
         </div>
       )}
 

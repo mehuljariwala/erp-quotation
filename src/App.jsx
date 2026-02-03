@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { MainLayout } from './components/layout/MainLayout';
 import { QuotationForm } from './components/quotation/QuotationForm';
 import { QuotationList } from './components/quotation/QuotationList';
+import { AuthGuard } from './components/auth';
+import { CompanyModule } from './components/company';
+import { AccountModule } from './components/account';
+import { ProductModule } from './components/product';
+import { Dashboard } from './components/dashboard';
 
 const PlaceholderModule = ({ name }) => (
   <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -32,11 +37,20 @@ const QuotationModule = ({ view, onViewChange }) => {
 };
 
 function App() {
-  const [activeModule, setActiveModule] = useState('quotation');
+  const [activeModule, setActiveModule] = useState('dashboard');
   const [quotationView, setQuotationView] = useState('form');
+
+  const handleModuleChange = (module) => {
+    setActiveModule(module);
+    if (module === 'quotation') {
+      setQuotationView('form');
+    }
+  };
 
   const renderModule = () => {
     switch (activeModule) {
+      case 'dashboard':
+        return <Dashboard onNavigate={handleModuleChange} />;
       case 'quotation':
         return (
           <QuotationModule
@@ -44,16 +58,16 @@ function App() {
             onViewChange={setQuotationView}
           />
         );
+      case 'final-quotation':
+        return <PlaceholderModule name="Final Quotation" />;
       case 'company':
-        return <PlaceholderModule name="Company Master" />;
+        return <CompanyModule />;
       case 'account':
-        return <PlaceholderModule name="Account Master" />;
+        return <AccountModule />;
       case 'salesman':
         return <PlaceholderModule name="Salesman Master" />;
-      case 'pricelist':
-        return <PlaceholderModule name="Price List" />;
       case 'product':
-        return <PlaceholderModule name="Product Master" />;
+        return <ProductModule />;
       case 'user':
         return <PlaceholderModule name="User Management" />;
       case 'backup':
@@ -61,22 +75,19 @@ function App() {
       case 'setting':
         return <PlaceholderModule name="Settings" />;
       default:
-        return <PlaceholderModule name="Module" />;
+        return <Dashboard onNavigate={handleModuleChange} />;
     }
   };
 
   return (
-    <MainLayout
-      activeModule={activeModule}
-      onModuleChange={(module) => {
-        setActiveModule(module);
-        if (module === 'quotation') {
-          setQuotationView('form');
-        }
-      }}
-    >
-      {renderModule()}
-    </MainLayout>
+    <AuthGuard>
+      <MainLayout
+        activeModule={activeModule}
+        onModuleChange={handleModuleChange}
+      >
+        {renderModule()}
+      </MainLayout>
+    </AuthGuard>
   );
 }
 
