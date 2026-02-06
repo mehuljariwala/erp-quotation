@@ -63,9 +63,19 @@ const calculateTotals = (lineItems) => ({
   netAmount: Math.round(lineItems.reduce((sum, item) => sum + item.netAmount, 0) * 100) / 100
 });
 
+const serializeAccDet = (acc) => {
+  if (!acc) return null;
+  return JSON.stringify({
+    unId: acc.id || '',
+    emailId: acc.email || '',
+    mobileNo: acc.phone || '',
+    imageUrl: acc.imageUrl || ''
+  });
+};
+
 const mapToApiFormat = (quotation) => {
-  const user = useAuthStore.getState().user;
-  const unOrgId = user?.orgId || null;
+  const selectedOrg = useAuthStore.getState().selectedOrg;
+  const unOrgId = selectedOrg?.unId || null;
 
   return {
     id: quotation.id || uuidv4(),
@@ -78,60 +88,110 @@ const mapToApiFormat = (quotation) => {
     vchNo: String(quotation.vchNo),
     unAccId: quotation.party?.id || null,
     accName: quotation.party?.name || '',
-    jsAccDet: quotation.party ? JSON.stringify(quotation.party) : null,
+    jsAccDet: serializeAccDet(quotation.party),
     unRefId: quotation.reference?.id || null,
     refName: quotation.reference?.name || '',
-    jsRefDet: quotation.reference ? JSON.stringify(quotation.reference) : null,
+    jsRefDet: serializeAccDet(quotation.reference),
     remark1: quotation.remark || '',
     remark2: quotation.email || '',
     quotationDet: quotation.lineItems.map((item, index) => ({
+      unRowId: item.id || uuidv4(),
       srNo: index + 1,
-      skuCode: item.skuCode || '',
-      productName: item.product?.name || item.description || '',
-      description: item.description || '',
       area: item.area || '',
-      mrp: item.mrp || 0,
+      priceId: quotation.priceId || 0,
+      priceName: quotation.priceList || 'MRP',
+      productId: item.product?.id || 0,
+      productName: item.product?.name || item.description || '',
+      productSkuCode: item.skuCode || '',
+      productImageUrl: item.image || item.product?.imageUrl || '',
+      pcs: 0,
       qty: item.qty || 0,
+      mrp: item.mrp || 0,
+      grossPrice: item.qty ? (item.grossAmount / item.qty) : item.mrp || 0,
       grossAmount: item.grossAmount || 0,
-      discPercent: item.discPercent || 0,
+      discPer: item.discPercent || 0,
       discAmount: item.discAmount || 0,
-      taxableAmount: item.taxableAmount || 0,
-      gstPercent: item.gstPercent || 18,
+      taxAmount: item.taxableAmount || 0,
+      gstPer: item.gstPercent || 18,
       gstAmount: item.gstAmount || 0,
-      netAmount: item.netAmount || 0
+      netPrice: item.qty ? (item.netAmount / item.qty) : 0,
+      netAmount: item.netAmount || 0,
+      shortNarr1: '',
+      shortNarr2: ''
     }))
   };
 };
 
+const parseAccDet = (jsonStr, fallbackId, fallbackName) => {
+  if (!jsonStr) return fallbackId ? { id: fallbackId, name: fallbackName || '' } : null;
+  try {
+    const raw = JSON.parse(jsonStr);
+    return {
+      id: raw.unId || raw.id || fallbackId,
+      name: raw.name || fallbackName || '',
+      alias: raw.alias || '',
+      email: raw.emailId || raw.email || '',
+      phone: raw.mobileNo || raw.phone || '',
+      city: raw.stateName || raw.city || '',
+      imageUrl: raw.imageUrl || ''
+    };
+  } catch {
+    return { id: fallbackId, name: fallbackName || '' };
+  }
+};
+
 const mapFromApiFormat = (apiData) => ({
   id: apiData.id,
-  vchNo: parseInt(apiData.vchNo) || 0,
+  vchNo: apiData.autoVchNo || parseInt(apiData.vchNo) || 0,
+  vchNoDisplay: apiData.vchNo,
   vchDate: apiData.vchDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-  party: apiData.jsAccDet ? JSON.parse(apiData.jsAccDet) : { id: apiData.unAccId, name: apiData.accName },
-  reference: apiData.jsRefDet ? JSON.parse(apiData.jsRefDet) : (apiData.unRefId ? { id: apiData.unRefId, name: apiData.refName } : null),
+  party: parseAccDet(apiData.jsAccDet, apiData.unAccId, apiData.accName),
+  reference: parseAccDet(apiData.jsRefDet, apiData.unRefId, apiData.refName),
   remark: apiData.remark1 || '',
   email: apiData.remark2 || '',
   salesman: null,
   priceList: apiData.priceName || 'MRP',
   priceId: apiData.priceId || 0,
-  lineItems: (apiData.quotationDet || []).map((det) => ({
-    id: det.id || uuidv4(),
+  lineItems: (apiData.quotationDet || []).map((det) => calculateLineItem({
+    id: det.unRowId || det.id || uuidv4(),
     area: det.area || '',
-    skuCode: det.skuCode || '',
-    product: { name: det.productName },
-    description: det.description || det.productName || '',
+    skuCode: det.productSkuCode || det.skuCode || '',
+    product: { id: det.productId, name: det.productName, imageUrl: det.productImageUrl },
+    image: det.productImageUrl || '',
+    description: det.productName || '',
     mrp: det.mrp || 0,
     qty: det.qty || 0,
-    grossAmount: det.grossAmount || 0,
-    discPercent: det.discPercent || 0,
-    discAmount: det.discAmount || 0,
-    taxableAmount: det.taxableAmount || 0,
-    gstPercent: det.gstPercent || 18,
-    gstAmount: det.gstAmount || 0,
-    netAmount: det.netAmount || 0
+    discPercent: det.discPer ?? det.discPercent ?? 0,
+    gstPercent: det.gstPer ?? det.gstPercent ?? 18
   })),
   status: 'draft',
   createdAt: apiData.createdAt
+});
+
+const mapFromListFormat = (item) => ({
+  id: item.id,
+  vchNo: item.autoVchNo || parseInt(item.vchNo) || 0,
+  vchNoDisplay: item.vchNo,
+  vchDate: item.vchDate?.split('T')[0] || '',
+  party: { name: item.accName || '' },
+  reference: item.refName ? { name: item.refName } : null,
+  remark: item.remark1 || '',
+  email: '',
+  salesman: null,
+  priceList: item.priceName || 'MRP',
+  priceId: 0,
+  lineItems: [],
+  totals: {
+    totalItems: 0,
+    grossAmount: item.vchGrossAmount || 0,
+    discountAmount: item.vchDiscAmount || 0,
+    gstAmount: item.vchGSTAmount || 0,
+    netAmount: item.vchNetAmount || 0
+  },
+  qty: item.vchQty || 0,
+  pcs: item.vchPcs || 0,
+  status: 'saved',
+  createdAt: null
 });
 
 export const useQuotationStore = create(
@@ -145,12 +205,13 @@ export const useQuotationStore = create(
 
       searchParties: async (name) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/lookUp/account`, {
+          const response = await fetch(`${API_BASE_URL}/api/account/filter`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
               name: name || '',
-              accGrpType: 'Account'
+              page: 1,
+              pageSize: 50
             })
           });
 
@@ -159,16 +220,15 @@ export const useQuotationStore = create(
           }
 
           const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.message || 'Failed to fetch parties');
-          }
+          const payload = result.data || result;
+          const items = payload.dataList || payload.items || payload.data || [];
 
-          return result.data.map(acc => ({
+          return items.map(acc => ({
             id: acc.id,
             name: acc.name,
             alias: acc.alias,
             email: acc.emailId,
-            phone: acc.mobileNo,
+            phone: acc.mobileNo1 || acc.mobileNo,
             city: acc.stateName,
             imageUrl: acc.imageUrl
           }));
@@ -180,12 +240,14 @@ export const useQuotationStore = create(
 
       searchReferences: async (name) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/lookUp/account`, {
+          const response = await fetch(`${API_BASE_URL}/api/account/filter`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
               name: name || '',
-              accGrpType: 'Refrence'
+              accGrpType: 'Refrence',
+              page: 1,
+              pageSize: 50
             })
           });
 
@@ -194,16 +256,15 @@ export const useQuotationStore = create(
           }
 
           const result = await response.json();
-          if (!result.success) {
-            throw new Error(result.message || 'Failed to fetch references');
-          }
+          const payload = result.data || result;
+          const items = payload.dataList || payload.items || payload.data || [];
 
-          return result.data.map(acc => ({
+          return items.map(acc => ({
             id: acc.id,
             name: acc.name,
             alias: acc.alias,
             email: acc.emailId,
-            phone: acc.mobileNo,
+            phone: acc.mobileNo1 || acc.mobileNo,
             city: acc.stateName,
             imageUrl: acc.imageUrl
           }));
@@ -486,6 +547,8 @@ export const useQuotationStore = create(
             }
           }));
 
+          get().fetchQuotations();
+
           return { success: true, id: savedId };
         } catch (error) {
           set({ isLoading: false, error: error.message });
@@ -532,13 +595,13 @@ export const useQuotationStore = create(
       fetchQuotations: async (filters = {}) => {
         set({ isLoading: true, error: null });
         try {
-          const user = useAuthStore.getState().user;
+          const selectedOrg = useAuthStore.getState().selectedOrg;
 
           const response = await fetch(`${API_BASE_URL}/api/quotation/filter`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
-              unOrgId: user?.orgId || filters.unOrgId,
+              unOrgId: selectedOrg?.unId || filters.unOrgId,
               yearCode: filters.yearCode || new Date().getFullYear(),
               accName: filters.accName || '',
               vchNo: filters.vchNo || '',
@@ -553,9 +616,44 @@ export const useQuotationStore = create(
 
           const result = await response.json();
           if (result.success !== false) {
-            const quotations = (result.data || []).map(mapFromApiFormat);
+            const payload = result.data || result;
+            const items = payload.dataList || payload.items || payload.data || [];
+            const totalCount = payload.totalCount || items.length;
+            const totalPages = payload.totalPages || Math.ceil(totalCount / (filters.pageSize || 20));
+
+            const quotations = items.map(mapFromListFormat);
             set({ quotations, isLoading: false });
-            return { success: true, data: quotations };
+
+            const detailResults = await Promise.allSettled(
+              items.map(item =>
+                fetch(`${API_BASE_URL}/api/quotation/${item.id}`, {
+                  headers: getAuthHeaders()
+                }).then(r => r.ok ? r.json() : null)
+              )
+            );
+
+            const enriched = quotations.map((q, i) => {
+              const detail = detailResults[i]?.value?.data;
+              if (!detail?.quotationDet) return q;
+              const lineItems = detail.quotationDet.map(det => ({
+                ...calculateLineItem({
+                  id: det.unRowId || uuidv4(),
+                  mrp: det.mrp || 0,
+                  qty: det.qty || 0,
+                  discPercent: det.discPer ?? 0,
+                  gstPercent: det.gstPer ?? 18
+                }),
+                area: det.area || '',
+                skuCode: det.productSkuCode || '',
+                productName: det.productName || '',
+                productImageUrl: det.productImageUrl || '',
+                priceName: det.priceName || ''
+              }));
+              return { ...q, lineItems, totals: calculateTotals(lineItems), qty: q.qty };
+            });
+            set({ quotations: enriched });
+
+            return { success: true, data: enriched, totalCount, totalPages };
           } else {
             set({ isLoading: false, error: result.message });
             return { success: false, error: result.message };

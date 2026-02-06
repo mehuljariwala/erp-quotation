@@ -15,6 +15,7 @@ const initialState = {
   products: [],
   currentProduct: null,
   isLoading: false,
+  _hasFetched: false,
   error: null,
   pagination: {
     page: 1,
@@ -42,7 +43,8 @@ export const useProductStore = create((set, get) => ({
   },
 
   fetchProducts: async () => {
-    set({ isLoading: true, error: null });
+    const hasFetched = get()._hasFetched;
+    set({ isLoading: !hasFetched, error: null });
     try {
       const { filters, pagination } = get();
       const response = await fetch(`${API_BASE_URL}/api/product/filter`, {
@@ -76,7 +78,8 @@ export const useProductStore = create((set, get) => ({
           totalCount,
           totalPages
         },
-        isLoading: false
+        isLoading: false,
+        _hasFetched: true
       });
     } catch (error) {
       set({ error: error.message, isLoading: false });

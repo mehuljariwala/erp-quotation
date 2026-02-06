@@ -8,8 +8,10 @@ import { ProductSelector } from './ProductSelector';
 import { PartyAutocomplete } from '../ui/PartyAutocomplete';
 import { SmartAutocomplete } from '../ui/SmartAutocomplete';
 import { useQuotationStore } from '../../stores/quotationStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useMasterStore } from '../../stores/masterStore';
+import { PrintVoucherModal } from './PrintVoucherModal';
 import { useGlobalShortcuts } from '../../hooks/useKeyboardNavigation';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -66,7 +68,7 @@ const TableInput = ({ value, onChange, placeholder, readOnly, className = '', on
   );
 };
 
-export const QuotationForm = ({ onBackToList }) => {
+export const QuotationForm = ({ onBackToList, onNavigate }) => {
   const {
     currentQuotation,
     setParty,
@@ -92,12 +94,13 @@ export const QuotationForm = ({ onBackToList }) => {
     showError
   } = useUIStore();
 
-  const { parties, salesmen, priceLists } = useMasterStore();
+  const user = useAuthStore(state => state.user);
+  const { parties, priceLists } = useMasterStore();
   const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   const partyRef = useRef(null);
   const referenceRef = useRef(null);
-  const salesmanRef = useRef(null);
   const priceListRef = useRef(null);
   const emailRef = useRef(null);
   const remarkRef = useRef(null);
@@ -107,6 +110,15 @@ export const QuotationForm = ({ onBackToList }) => {
     partyRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!currentQuotation.email && user?.email) {
+      setEmail(user.email);
+    }
+    if (!currentQuotation.salesman && user?.email) {
+      setSalesman(user.email);
+    }
+  }, [currentQuotation.id]);
+
   const handlePartySelect = useCallback((party) => {
     setParty(party);
   }, [setParty]);
@@ -114,10 +126,6 @@ export const QuotationForm = ({ onBackToList }) => {
   const handleReferenceSelect = useCallback((ref) => {
     setReference(ref);
   }, [setReference]);
-
-  const handleSalesmanSelect = useCallback((salesman) => {
-    setSalesman(salesman);
-  }, [setSalesman]);
 
   const handlePriceListSelect = useCallback((priceList) => {
     setPriceList(priceList?.name || null);
@@ -135,10 +143,11 @@ export const QuotationForm = ({ onBackToList }) => {
     const result = await saveQuotation();
     if (result.success) {
       showSuccess('Saved Successfully');
+      onNavigate?.('final-quotation');
     } else {
       showError(result.error || 'Failed to save quotation');
     }
-  }, [currentQuotation, saveQuotation, showSuccess, showError]);
+  }, [currentQuotation, saveQuotation, showSuccess, showError, onNavigate]);
 
   const handleNew = useCallback(() => {
     newQuotation();
@@ -158,7 +167,7 @@ export const QuotationForm = ({ onBackToList }) => {
   useGlobalShortcuts({
     onCtrlS: (e) => { e.preventDefault(); handleSave(); },
     onCtrlN: (e) => { e.preventDefault(); handleNew(); },
-    onCtrlP: (e) => { e.preventDefault(); window.print(); }
+    onCtrlP: (e) => { e.preventDefault(); setShowPrintModal(true); }
   });
 
   const totals = currentQuotation.totals;
@@ -208,25 +217,17 @@ export const QuotationForm = ({ onBackToList }) => {
                   onChange={handleReferenceSelect}
                   placeholder="Select reference..."
                   searchType="Refrence"
-                  onNext={() => salesmanRef.current?.focus()}
+                  onNext={() => priceListRef.current?.focus()}
                   onPrev={() => partyRef.current?.focus()}
                 />
               </FormField>
             </div>
             <div className="col-span-2">
               <FormField label="Salesman">
-                <SmartAutocomplete
-                  ref={salesmanRef}
-                  value={currentQuotation.salesman}
-                  onChange={handleSalesmanSelect}
-                  options={salesmen}
-                  searchFields={['name', 'code', 'phone', 'territory']}
-                  type="salesman"
-                  placeholder="Select..."
-                  entityName="salesmen"
-                  minWidth={340}
-                  onNext={() => priceListRef.current?.focus()}
-                  onPrev={() => referenceRef.current?.focus()}
+                <TableInput
+                  value={currentQuotation.salesman || user?.email || ''}
+                  readOnly
+                  placeholder=""
                 />
               </FormField>
             </div>
@@ -243,7 +244,7 @@ export const QuotationForm = ({ onBackToList }) => {
                   entityName="price lists"
                   minWidth={280}
                   onNext={() => emailRef.current?.focus()}
-                  onPrev={() => salesmanRef.current?.focus()}
+                  onPrev={() => referenceRef.current?.focus()}
                 />
               </FormField>
             </div>
@@ -370,7 +371,7 @@ export const QuotationForm = ({ onBackToList }) => {
               <Trash2 className="w-3.5 h-3.5" />
               Delete
             </button>
-            <button className="win-btn" onClick={() => window.print()}>
+            <button className="win-btn" onClick={() => setShowPrintModal(true)}>
               <Printer className="w-3.5 h-3.5" />
               Print
             </button>
@@ -381,6 +382,12 @@ export const QuotationForm = ({ onBackToList }) => {
           </div>
         </div>
       </div>
+
+      {/* Print Voucher Dialog */}
+      <PrintVoucherModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+      />
 
       {/* Modals */}
       <ProductSelector

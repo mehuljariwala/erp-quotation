@@ -1,12 +1,248 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Plus, Search, RefreshCw, Package, Pencil, Trash2,
   ChevronLeft, ChevronRight, X, Check, AlertCircle,
-  Loader2, ChevronDown, Upload, Image as ImageIcon, Eye
+  Loader2, ChevronDown, Upload, Image as ImageIcon, Eye,
+  Download, FileSpreadsheet, ArrowUpFromLine, DollarSign, PackageCheck, FileDown
 } from 'lucide-react';
 import { useProductStore } from '../../stores/productStore';
 import { useCompanyStore } from '../../stores/companyStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+
+const API_BASE_URL = 'https://apiord.maitriceramic.com';
+
+const escapeCsvCell = (val) => {
+  if (val == null) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+const downloadCsv = (rows, headers, filename) => {
+  const csv = [
+    headers.map(escapeCsvCell).join(','),
+    ...rows.map(row => headers.map((_, i) => escapeCsvCell(row[i])).join(','))
+  ].join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const PRODUCT_EXPORT_HEADERS = [
+  'SKU Code', 'Product Name', 'Company', 'Category', 'HSN Code',
+  'MRP', 'Sale Rate', 'Purchase Rate', 'GST %', 'Discount %', 'Status'
+];
+
+const SAMPLE_PRODUCT_HEADERS = ['SKU Code', 'Product Name', 'Company', 'Category', 'HSN Code', 'MRP', 'Sale Rate', 'Purchase Rate', 'GST %', 'Discount %'];
+const SAMPLE_PRICE_HEADERS = ['SKU Code', 'MRP', 'Sale Rate', 'Purchase Rate'];
+const SAMPLE_STOCK_HEADERS = ['SKU Code', 'Opening Stock', 'Current Stock'];
+
+const ImportDropdown = ({ onSelect, onClose }) => {
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  const items = [
+    { key: 'product', label: 'Upload Products', icon: ArrowUpFromLine, color: 'text-blue-600 bg-blue-50' },
+    { key: 'price', label: 'Update Price', icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
+    { key: 'stock', label: 'Update Stock', icon: PackageCheck, color: 'text-amber-600 bg-amber-50' },
+  ];
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-xl z-30 py-1.5 animate-scale-in origin-top-right"
+    >
+      {items.map(({ key, label, icon: Icon, color }) => (
+        <button
+          key={key}
+          onClick={() => { onSelect(key); onClose(); }}
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+        >
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${color}`}>
+            <Icon className="w-3.5 h-3.5" />
+          </div>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const ExcelUploadModal = ({ type, onClose, onUploadComplete }) => {
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const typeConfig = {
+    product: { title: 'Upload Products', desc: 'Import products from an Excel or CSV file', accent: 'blue' },
+    price: { title: 'Update Prices', desc: 'Bulk update product prices from file', accent: 'emerald' },
+    stock: { title: 'Update Stock', desc: 'Bulk update stock levels from file', accent: 'amber' },
+  };
+
+  const config = typeConfig[type] || typeConfig.product;
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped && (dropped.name.endsWith('.csv') || dropped.name.endsWith('.xlsx') || dropped.name.endsWith('.xls'))) {
+      setFile(dropped);
+    }
+  }, []);
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+
+      const response = await fetch(`${API_BASE_URL}/api/product/import`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Upload failed');
+      }
+
+      const data = await response.json();
+      onUploadComplete?.(data);
+      onClose();
+    } catch (err) {
+      onUploadComplete?.({ success: false, error: err.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden">
+        <div className={`px-6 py-4 bg-gradient-to-r ${
+          config.accent === 'blue' ? 'from-blue-500 to-blue-600' :
+          config.accent === 'emerald' ? 'from-emerald-500 to-emerald-600' :
+          'from-amber-500 to-amber-600'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white">{config.title}</h2>
+              <p className="text-sm text-white/70 mt-0.5">{config.desc}</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/20 transition-colors">
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`
+              relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
+              ${dragActive
+                ? 'border-blue-400 bg-blue-50 scale-[1.01]'
+                : file
+                  ? 'border-emerald-300 bg-emerald-50'
+                  : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              }
+            `}
+          >
+            {file ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+                </div>
+                <p className="text-sm font-medium text-slate-800">{file.name}</p>
+                <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                  className="text-xs text-red-500 hover:text-red-700 mt-1"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <Upload className="w-6 h-6 text-slate-400" />
+                </div>
+                <p className="text-sm font-medium text-slate-700">
+                  Drop your file here or <span className="text-blue-600">browse</span>
+                </p>
+                <p className="text-xs text-slate-400">Supports .csv, .xlsx, .xls</p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="hidden"
+            />
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 h-10 px-4 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={!file || isUploading}
+              className={`flex-1 h-10 px-4 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+                config.accent === 'blue' ? 'bg-blue-500 hover:bg-blue-600' :
+                config.accent === 'emerald' ? 'bg-emerald-500 hover:bg-emerald-600' :
+                'bg-amber-500 hover:bg-amber-600'
+              }`}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Upload
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const StatusBadge = ({ isActive }) => (
   <span className={`
@@ -914,8 +1150,10 @@ export const ProductModule = () => {
   const [deletingProduct, setDeletingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
+  const [uploadType, setUploadType] = useState(null);
 
   const searchTimeoutRef = useRef(null);
 
@@ -930,7 +1168,8 @@ export const ProductModule = () => {
     }
   }, [products]);
 
-  const handleSearch = (value) => {
+  const handleSearch = (e) => {
+    const value = e.target.value;
     setSearchValue(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
@@ -988,137 +1227,149 @@ export const ProductModule = () => {
 
   const getSelectedProduct = () => products.find(p => p.id === selectedId);
 
+  const handleExportExcel = () => {
+    if (products.length === 0) {
+      showError('No products to export');
+      return;
+    }
+    const rows = products.map(p => [
+      p.skuCode || '', p.name || '', p.companyName || '', p.categoryName || '',
+      p.hsnCode || '', p.mrp || 0, p.saleRate || 0, p.purchaseRate || 0,
+      p.taxPer || 0, p.discPer || 0, p.isActive !== false ? 'Active' : 'Inactive'
+    ]);
+    downloadCsv(rows, PRODUCT_EXPORT_HEADERS, `products_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    showSuccess(`Exported ${products.length} products`);
+  };
+
+  const handleDownloadSample = () => {
+    const headers = SAMPLE_PRODUCT_HEADERS;
+    const sampleRows = [
+      ['SKU-001', 'Sample Product', 'Company Name', 'Category', '39221000', '1500', '1200', '800', '18', '5'],
+      ['SKU-002', 'Another Product', 'Company Name', 'Category', '39221000', '2000', '1800', '1000', '12', '0'],
+    ];
+    downloadCsv(sampleRows, headers, 'sample_product_upload.csv');
+    showSuccess('Sample template downloaded');
+  };
+
+  const handleImportSelect = (type) => {
+    setUploadType(type);
+  };
+
+  const handleUploadComplete = (result) => {
+    if (result?.success !== false) {
+      showSuccess('File uploaded successfully');
+      fetchProducts();
+    } else {
+      showError(result?.error || 'Upload failed');
+    }
+  };
+
   const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize) || 1;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col bg-slate-50 p-6">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-              <Package className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+              <Package className="w-4 h-4 text-violet-600" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-slate-800">Products</h1>
-              <p className="text-xs text-slate-500">Manage your product catalog</p>
+            <h3 className="font-semibold text-slate-800">All Products</h3>
+            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{pagination.totalCount}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchValue}
+                onChange={handleSearch}
+                placeholder="Search products..."
+                className="h-8 w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+              />
             </div>
-          </div>
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 h-9 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Product
-          </button>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search products..."
-              className="w-full h-9 pl-9 pr-3 text-sm border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <button
-            onClick={() => fetchProducts()}
-            disabled={isLoading}
-            className="flex items-center gap-2 h-9 px-3 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <div className="flex gap-1 ml-auto">
             <button
-              onClick={() => { const p = getSelectedProduct(); if (p) handleEdit(p); }}
-              disabled={!selectedId}
-              className="h-9 px-3 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+              onClick={() => fetchProducts()}
+              disabled={isLoading}
+              className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
             >
-              <Pencil className="w-4 h-4" />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
+
+            <div className="w-px h-5 bg-slate-200" />
+
             <button
-              onClick={() => { const p = getSelectedProduct(); if (p) setDeletingProduct(p); }}
-              disabled={!selectedId}
-              className="h-9 px-3 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              onClick={handleExportExcel}
+              className="h-8 px-2.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+              title="Export to Excel"
             >
-              <Trash2 className="w-4 h-4" />
+              <Download className="w-4 h-4" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowImportDropdown(prev => !prev)}
+                className={`h-8 px-2.5 rounded-lg transition-colors ${
+                  showImportDropdown
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+                title="Import Data"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+              </button>
+              {showImportDropdown && (
+                <ImportDropdown
+                  onSelect={handleImportSelect}
+                  onClose={() => setShowImportDropdown(false)}
+                />
+              )}
+            </div>
+            <button
+              onClick={handleDownloadSample}
+              className="h-8 px-2.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+              title="Download Sample Template"
+            >
+              <FileDown className="w-4 h-4" />
+            </button>
+
+            <div className="w-px h-5 bg-slate-200" />
+
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-1.5 h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {/* Top Pagination */}
-          {products.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50">
-              <p className="text-sm text-slate-600">
-                Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
-                {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
-                {pagination.totalCount} results
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="flex items-center gap-1 px-2 py-1 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Prev
-                </button>
-                <span className="px-2 py-1 text-sm text-slate-700 bg-white border border-slate-300 rounded">
-                  {pagination.page} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(pagination.page + 1)}
-                  disabled={pagination.page >= totalPages}
-                  className="flex items-center gap-1 px-2 py-1 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-center px-2 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Image</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">SKU Code</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-[150px]">Product</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Category</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Company</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">HSNCode</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">MRP</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Purchase</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">GST(%)</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">Disc(%)</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">NRP</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">SaleRate</th>
-                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Exc.GST</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Actions</th>
+        {/* Scrollable Table */}
+        <div className="flex-1 overflow-auto min-h-0">
+          <table className="w-full">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Category</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Company</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">MRP</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Sale Rate</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading && products.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto mb-2" />
                       <p className="text-sm text-slate-500">Loading products...</p>
                     </td>
                   </tr>
                 ) : products.length === 0 ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                       <p className="text-sm text-slate-500">No products found</p>
                       <button
@@ -1130,10 +1381,7 @@ export const ProductModule = () => {
                     </td>
                   </tr>
                 ) : (
-                  products.map((product) => {
-                    const excGst = product.saleRate ? (product.saleRate / (1 + (product.taxPer || 0) / 100)).toFixed(2) : '0.00';
-                    const nrp = product.mrp && product.discPer ? (product.mrp * (1 - product.discPer / 100)).toFixed(2) : product.mrp?.toFixed(2) || '0.00';
-                    return (
+                  products.map((product) => (
                       <tr
                         key={product.id}
                         onClick={() => handleRowClick(product)}
@@ -1142,78 +1390,54 @@ export const ProductModule = () => {
                           selectedId === product.id ? 'bg-blue-50' : 'hover:bg-slate-50'
                         }`}
                       >
-                        <td className="px-2 py-2">
-                          <div className="flex items-center justify-center">
-                            {product.imageUrl ? (
-                              <img
-                                src={product.imageUrl}
-                                alt={product.name || 'Product'}
-                                className="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm"
-                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                              />
-                            ) : null}
-                            <div
-                              className={`w-14 h-14 rounded-lg bg-slate-100 border border-slate-200 items-center justify-center ${product.imageUrl ? 'hidden' : 'flex'}`}
-                            >
-                              <ImageIcon className="w-6 h-6 text-slate-400" />
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {product.imageUrl ? (
+                                <img
+                                  src={product.imageUrl}
+                                  alt={product.name || 'Product'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                />
+                              ) : null}
+                              <div className={`w-full h-full items-center justify-center ${product.imageUrl ? 'hidden' : 'flex'}`}>
+                                <ImageIcon className="w-5 h-5 text-slate-400" />
+                              </div>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate">{product.name || 'Untitled'}</p>
+                              <p className="text-xs text-slate-400 font-mono truncate">{product.skuCode || '—'}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2">
-                          <span className="text-sm font-mono text-slate-700">{product.skuCode || '—'}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="text-sm text-slate-800">{product.name || '—'}</span>
-                        </td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <span className="text-sm text-slate-600">{product.categoryName || '—'}</span>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className="px-4 py-3">
                           <span className="text-sm text-slate-600">{product.companyName || '—'}</span>
                         </td>
-                        <td className="px-3 py-2">
-                          <span className="text-sm text-slate-600">{product.hsnCode || '—'}</span>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-sm font-medium text-slate-800">{product.mrp?.toFixed(2) || '0.00'}</span>
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-700">{product.mrp?.toFixed(2) || '0.00'}</span>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-sm font-medium text-blue-600">{product.saleRate?.toFixed(2) || '0.00'}</span>
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-700">{product.purchaseRate?.toFixed(2) || '0.00'}</span>
+                        <td className="px-4 py-3 text-center">
+                          <StatusBadge isActive={product.isActive} />
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-600">{product.taxPer?.toFixed(0) || '0'}</span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-600">{product.discPer?.toFixed(0) || '0'}</span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-700">{nrp}</span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm font-medium text-slate-800">{product.saleRate?.toFixed(2) || '0.00'}</span>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="text-sm text-slate-600">{excGst}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setViewingProduct(product); }}
-                              className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
-                              title="View"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
-                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setDeletingProduct(product); }}
-                              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1221,45 +1445,43 @@ export const ProductModule = () => {
                           </div>
                         </td>
                       </tr>
-                    );
-                  })
+                  ))
                 )}
               </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {products.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
-              <p className="text-sm text-slate-600">
-                Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
-                {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
-                {pagination.totalCount} results
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Prev
-                </button>
-                <span className="px-3 py-1.5 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg">
-                  {pagination.page} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(pagination.page + 1)}
-                  disabled={pagination.page >= totalPages}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          </table>
         </div>
+
+        {/* Sticky Footer Pagination */}
+        {products.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
+            <p className="text-sm text-slate-600">
+              Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
+              {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
+              {pagination.totalCount} results
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Prev
+              </button>
+              <span className="px-3 py-1.5 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg">
+                {pagination.page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(pagination.page + 1)}
+                disabled={pagination.page >= totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -1286,6 +1508,14 @@ export const ProductModule = () => {
           product={viewingProduct}
           onClose={() => setViewingProduct(null)}
           onEdit={handleEdit}
+        />
+      )}
+
+      {uploadType && (
+        <ExcelUploadModal
+          type={uploadType}
+          onClose={() => setUploadType(null)}
+          onUploadComplete={handleUploadComplete}
         />
       )}
     </div>

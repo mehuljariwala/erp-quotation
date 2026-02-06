@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MainLayout } from './components/layout/MainLayout';
 import { QuotationForm } from './components/quotation/QuotationForm';
 import { QuotationList } from './components/quotation/QuotationList';
+import { FinalQuotationModule } from './components/quotation/FinalQuotationModule';
 import { AuthGuard } from './components/auth';
 import { CompanyModule } from './components/company';
 import { AccountModule } from './components/account';
@@ -23,9 +24,9 @@ const PlaceholderModule = ({ name }) => (
   </div>
 );
 
-const QuotationModule = ({ view, onViewChange }) => {
+const QuotationModule = ({ view, onViewChange, onNavigate }) => {
   if (view === 'form') {
-    return <QuotationForm onBackToList={() => onViewChange('list')} />;
+    return <QuotationForm onBackToList={() => onViewChange('list')} onNavigate={onNavigate} />;
   }
 
   return (
@@ -56,16 +57,22 @@ function App() {
           <QuotationModule
             view={quotationView}
             onViewChange={setQuotationView}
+            onNavigate={handleModuleChange}
           />
         );
       case 'final-quotation':
-        return <PlaceholderModule name="Final Quotation" />;
+        return (
+          <FinalQuotationModule
+            onEditQuotation={() => {
+              setActiveModule('quotation');
+              setQuotationView('form');
+            }}
+          />
+        );
       case 'company':
         return <CompanyModule />;
       case 'account':
         return <AccountModule />;
-      case 'salesman':
-        return <PlaceholderModule name="Salesman Master" />;
       case 'product':
         return <ProductModule />;
       case 'user':

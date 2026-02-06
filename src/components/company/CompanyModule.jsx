@@ -7,6 +7,7 @@ import {
 import { useCompanyStore } from '../../stores/companyStore';
 import { useUIStore } from '../../stores/uiStore';
 
+
 const StatusBadge = ({ isActive }) => (
   <span className={`
     inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
@@ -301,7 +302,8 @@ export const CompanyModule = () => {
     fetchCompanies();
   }, [pagination.page, filters.name]);
 
-  const handleSearch = (value) => {
+  const handleSearch = (e) => {
+    const value = e.target.value;
     setSearchValue(value);
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
@@ -352,58 +354,49 @@ export const CompanyModule = () => {
   const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize) || 1;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col bg-slate-50 p-6">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-blue-600" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-slate-800">Companies</h1>
-              <p className="text-xs text-slate-500">Manage your company records</p>
+            <h3 className="font-semibold text-slate-800">All Companies</h3>
+            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{pagination.totalCount}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchValue}
+                onChange={handleSearch}
+                placeholder="Search companies..."
+                className="h-8 w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+              />
             </div>
+            <button
+              onClick={() => fetchCompanies()}
+              disabled={isLoading}
+              className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-1.5 h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add
+            </button>
           </div>
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 h-9 px-4 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add Company
-          </button>
         </div>
-      </div>
 
-      {/* Toolbar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search companies..."
-              className="w-full h-9 pl-9 pr-3 text-sm border border-slate-300 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <button
-            onClick={() => fetchCompanies()}
-            disabled={isLoading}
-            className="flex items-center gap-2 h-9 px-3 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="flex-1 overflow-auto p-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Scrollable Table */}
+        <div className="flex-1 overflow-auto min-h-0">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">
                   #
@@ -500,39 +493,39 @@ export const CompanyModule = () => {
               )}
             </tbody>
           </table>
-
-          {/* Pagination */}
-          {companies.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
-              <p className="text-sm text-slate-600">
-                Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
-                {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
-                {pagination.totalCount} results
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Prev
-                </button>
-                <span className="px-3 py-1.5 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg">
-                  {pagination.page} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(pagination.page + 1)}
-                  disabled={pagination.page >= totalPages}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Sticky Footer Pagination */}
+        {companies.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 shrink-0">
+            <p className="text-sm text-slate-600">
+              Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
+              {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
+              {pagination.totalCount} results
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Prev
+              </button>
+              <span className="px-3 py-1.5 text-sm text-slate-700 bg-white border border-slate-300 rounded-lg">
+                {pagination.page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(pagination.page + 1)}
+                disabled={pagination.page >= totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800 hover:bg-white border border-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}

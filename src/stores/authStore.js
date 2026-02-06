@@ -11,7 +11,9 @@ const initialState = {
   permissions: [],
   lastActivity: null,
   sessionExpiry: null,
-  error: null
+  error: null,
+  organizationsUser: [],
+  selectedOrg: null
 };
 
 export const useAuthStore = create(
@@ -38,13 +40,16 @@ export const useAuthStore = create(
           throw new Error(data.message || 'Login failed');
         }
 
+        const userData = data.userData || data;
         const user = {
-          id: data.userId || data.id,
-          name: data.userName || credentials.username,
-          email: data.email || `${credentials.username}@company.com`,
-          role: data.role || 'user',
-          orgName: data.orgName
+          id: userData.id || userData.userId || data.userId,
+          name: userData.userName || credentials.username,
+          email: userData.email || credentials.username,
+          role: userData.roleType || data.role || 'user',
+          orgId: null
         };
+
+        const orgs = data.organizationsUser || [];
 
         set({
           user,
@@ -53,7 +58,9 @@ export const useAuthStore = create(
           isLoading: false,
           permissions: data.permissions || ['quotation.create', 'quotation.edit', 'quotation.delete'],
           lastActivity: Date.now(),
-          sessionExpiry: Date.now() + 8 * 60 * 60 * 1000
+          sessionExpiry: Date.now() + 8 * 60 * 60 * 1000,
+          organizationsUser: orgs,
+          selectedOrg: null
         });
 
         return { success: true };
@@ -103,6 +110,13 @@ export const useAuthStore = create(
       }
     },
 
+    setSelectedOrg: (org) => {
+      set(state => ({
+        selectedOrg: org,
+        user: state.user ? { ...state.user, orgId: org?.unId } : null
+      }));
+    },
+
     logout: () => {
       set(initialState);
     },
@@ -149,7 +163,9 @@ export const useAuthStore = create(
         token: state.token,
         isAuthenticated: state.isAuthenticated,
         permissions: state.permissions,
-        sessionExpiry: state.sessionExpiry
+        sessionExpiry: state.sessionExpiry,
+        organizationsUser: state.organizationsUser,
+        selectedOrg: state.selectedOrg
       })
     }
   })

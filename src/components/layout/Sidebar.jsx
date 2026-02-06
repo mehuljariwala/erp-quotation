@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-  Building2, Users, UserCog, Tags, Package, FileText,
+  Building2, Users, Tags, Package, FileText,
   Shield, Database, Settings, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
@@ -9,7 +9,6 @@ import { useUIStore } from '../../stores/uiStore';
 const menuItems = [
   { id: 'company', label: 'Company', icon: Building2 },
   { id: 'account', label: 'Account', icon: Users },
-  { id: 'salesman', label: 'Salesman', icon: UserCog },
   { id: 'pricelist', label: 'Price List', icon: Tags },
   { id: 'product', label: 'Product', icon: Package },
   { id: 'quotation', label: 'Quotation', icon: FileText },

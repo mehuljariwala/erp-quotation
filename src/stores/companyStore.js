@@ -15,6 +15,7 @@ const initialState = {
   companies: [],
   currentCompany: null,
   isLoading: false,
+  _hasFetched: false,
   error: null,
   pagination: {
     page: 1,
@@ -39,7 +40,8 @@ export const useCompanyStore = create((set, get) => ({
   },
 
   fetchCompanies: async () => {
-    set({ isLoading: true, error: null });
+    const hasFetched = get()._hasFetched;
+    set({ isLoading: !hasFetched, error: null });
     try {
       const { filters, pagination } = get();
       const response = await fetch(`${API_BASE_URL}/api/company/filter`, {
@@ -70,7 +72,8 @@ export const useCompanyStore = create((set, get) => ({
           totalCount,
           totalPages
         },
-        isLoading: false
+        isLoading: false,
+        _hasFetched: true
       });
     } catch (error) {
       set({ error: error.message, isLoading: false });

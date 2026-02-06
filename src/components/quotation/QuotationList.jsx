@@ -5,6 +5,7 @@ import {
   FileText, ArrowUpDown, Loader2
 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { CenterSearchModal } from '../ui/CenterSearchModal';
 import { useQuotationStore } from '../../stores/quotationStore';
 import { useUIStore } from '../../stores/uiStore';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -21,6 +22,7 @@ export const QuotationList = ({ onEditQuotation }) => {
   } = useQuotationStore();
   const { showSuccess, showError } = useUIStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [sortField, setSortField] = useState('vchDate');
   const [sortDirection, setSortDirection] = useState('desc');
 
@@ -120,18 +122,13 @@ export const QuotationList = ({ onEditQuotation }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search quotations..."
-              className="w-full pl-10 pr-4 py-2 bg-surface-700 border border-surface-500 rounded-lg
-                        text-text-primary placeholder:text-text-muted
-                        focus:outline-none focus:border-accent-primary"
-            />
-          </div>
+          <button
+            onClick={() => setShowSearchModal(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-surface-700 border border-surface-500 rounded-lg text-text-muted hover:text-text-primary hover:border-accent-primary transition-colors"
+          >
+            <Search className="w-4 h-4" />
+            <span className="text-sm">Search</span>
+          </button>
           <span className="text-sm text-text-muted">
             {filteredQuotations.length} quotations
           </span>
@@ -161,6 +158,15 @@ export const QuotationList = ({ onEditQuotation }) => {
           <kbd className="kbd ml-1">⌘N</kbd>
         </Button>
       </div>
+
+      {/* Search Modal */}
+      <CenterSearchModal
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onOpen={() => setShowSearchModal(true)}
+        onSearch={setSearchQuery}
+        placeholder="Search quotations..."
+      />
 
       {/* Table */}
       <div className="bg-surface-800 rounded-xl border border-surface-600 overflow-hidden">

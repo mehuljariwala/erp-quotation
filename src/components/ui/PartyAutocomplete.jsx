@@ -63,10 +63,11 @@ export const PartyAutocomplete = forwardRef(({
       clearTimeout(searchTimeoutRef.current);
     }
 
+    const delay = query === '' ? 0 : 300;
     searchTimeoutRef.current = setTimeout(() => {
       lastSearchRef.current = { query, isOpen };
       performSearch(query);
-    }, 300);
+    }, delay);
 
     return () => {
       if (searchTimeoutRef.current) {
@@ -88,9 +89,8 @@ export const PartyAutocomplete = forwardRef(({
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
-      performSearch('');
     }
-  }, [isOpen, performSearch]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && listRef.current?.children[highlightedIndex]) {

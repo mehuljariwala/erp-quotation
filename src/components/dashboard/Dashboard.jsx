@@ -127,14 +127,14 @@ const EmptyState = ({ icon: Icon, title, description }) => (
 );
 
 export const Dashboard = ({ onNavigate }) => {
-  const { stats, recentQuotations, topAccounts, recentProducts, isLoading, fetchDashboardData } = useDashboardStore();
+  const { stats, recentQuotations, topAccounts, recentProducts, isLoading, _hasFetched, fetchDashboardData } = useDashboardStore();
   const user = useAuthStore(state => state.user);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, []);
 
-  if (isLoading) {
+  if (isLoading && !_hasFetched) {
     return (
       <div className="p-6 bg-slate-50 min-h-full">
         <LoadingSkeleton />
@@ -144,7 +144,7 @@ export const Dashboard = ({ onNavigate }) => {
 
   return (
     <div className="p-6 bg-slate-50 min-h-full">
-      <div className="max-w-7xl mx-auto">
+      <div>
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
