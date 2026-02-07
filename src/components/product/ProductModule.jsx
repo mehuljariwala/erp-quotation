@@ -246,16 +246,58 @@ const ExcelUploadModal = ({ type, onClose, onUploadComplete }) => {
 
 const StatusBadge = ({ isActive }) => (
   <span className={`
-    inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+    inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wide uppercase
     ${isActive
-      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-      : 'bg-slate-100 text-slate-500 border border-slate-200'
+      ? 'bg-emerald-50 text-emerald-600'
+      : 'bg-slate-100 text-slate-400'
     }
   `}>
-    <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} />
     {isActive ? 'Active' : 'Inactive'}
   </span>
 );
+
+const MoreActionsMenu = ({ onExport, onImport, onDownloadSample, onClose }) => {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const actions = [
+    { label: 'Export Products', sub: 'Download as CSV', icon: Download, onClick: onExport, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Import Data', sub: 'Upload CSV / Excel', icon: FileSpreadsheet, onClick: onImport, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Sample Template', sub: 'Download blank CSV', icon: FileDown, onClick: onDownloadSample, color: 'text-amber-600 bg-amber-50' },
+  ];
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-2 w-60 bg-white rounded-xl border border-slate-200/80 shadow-xl shadow-slate-200/50 z-30 py-1.5 origin-top-right"
+      style={{ animation: 'fadeSlideDown 0.15s ease-out' }}
+    >
+      {actions.map(({ label, sub, icon: Icon, onClick, color }) => (
+        <button
+          key={label}
+          onClick={() => { onClick(); onClose(); }}
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-slate-50 transition-colors"
+        >
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[13px] font-medium text-slate-700">{label}</p>
+            <p className="text-[11px] text-slate-400">{sub}</p>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const CompanySelector = ({ value, onChange, onClose, companies }) => {
   const [search, setSearch] = useState('');
@@ -1153,6 +1195,7 @@ export const ProductModule = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [searchValue, setSearchValue] = useState('');
   const [showImportDropdown, setShowImportDropdown] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const [uploadType, setUploadType] = useState(null);
 
   const searchTimeoutRef = useRef(null);
@@ -1267,92 +1310,87 @@ export const ProductModule = () => {
   const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize) || 1;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
-        {/* Sticky Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
+    <div className="h-full flex flex-col">
+      <style>{`
+        @keyframes fadeSlideDown {
+          from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+      <div className="m-3 mb-0 bg-white rounded-xl border border-slate-200/80 shadow-sm shadow-slate-100 flex flex-col min-h-0 flex-1 overflow-hidden">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-5 py-3.5 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Package className="w-4 h-4 text-violet-600" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm shadow-violet-200">
+              <Package className="w-4.5 h-4.5 text-white" strokeWidth={2} />
             </div>
-            <h3 className="font-semibold text-slate-800">All Products</h3>
-            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{pagination.totalCount}</span>
+            <div>
+              <h3 className="text-[15px] font-bold text-slate-800 tracking-tight">Products</h3>
+              <p className="text-[11px] text-slate-400 font-medium">{pagination.totalCount} items</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:flex-none">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={handleSearch}
-                placeholder="Search products..."
-                className="h-8 w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+                placeholder="Search by name or SKU..."
+                className="h-9 w-full md:w-56 pl-9 pr-3 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all placeholder:text-slate-300"
               />
             </div>
+
             <button
               onClick={() => fetchProducts()}
               disabled={isLoading}
-              className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+              title="Refresh"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
 
-            <div className="w-px h-5 bg-slate-200" />
-
-            <button
-              onClick={handleExportExcel}
-              className="h-8 px-2.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-              title="Export to Excel"
-            >
-              <Download className="w-4 h-4" />
-            </button>
             <div className="relative">
               <button
-                onClick={() => setShowImportDropdown(prev => !prev)}
-                className={`h-8 px-2.5 rounded-lg transition-colors ${
-                  showImportDropdown
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
+                onClick={() => setShowMoreActions(prev => !prev)}
+                className={`h-9 px-3 flex items-center gap-1.5 text-[13px] font-medium rounded-lg transition-colors ${
+                  showMoreActions
+                    ? 'text-violet-700 bg-violet-50'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 border border-slate-200'
                 }`}
-                title="Import Data"
               >
-                <FileSpreadsheet className="w-4 h-4" />
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMoreActions ? 'rotate-180' : ''}`} />
+                More
               </button>
-              {showImportDropdown && (
-                <ImportDropdown
-                  onSelect={handleImportSelect}
-                  onClose={() => setShowImportDropdown(false)}
+              {showMoreActions && (
+                <MoreActionsMenu
+                  onExport={handleExportExcel}
+                  onImport={() => setShowImportDropdown(true)}
+                  onDownloadSample={handleDownloadSample}
+                  onClose={() => setShowMoreActions(false)}
                 />
               )}
             </div>
-            <button
-              onClick={handleDownloadSample}
-              className="h-8 px-2.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-              title="Download Sample Template"
-            >
-              <FileDown className="w-4 h-4" />
-            </button>
-
-            <div className="w-px h-5 bg-slate-200" />
 
             <button
               onClick={handleCreate}
-              className="flex items-center gap-1.5 h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 h-9 px-4 bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98]"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Add
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
+              Add Product
             </button>
           </div>
         </div>
 
         {/* Scrollable Table */}
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Product</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Category</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Company</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Category</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Company</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">MRP</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Sale Rate</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
@@ -1361,12 +1399,15 @@ export const ProductModule = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading && products.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto mb-2" />
-                      <p className="text-sm text-slate-500">Loading products...</p>
-                    </td>
-                  </tr>
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={`loader-${i}`}>
+                      {Array.from({ length: 7 }).map((_, j) => (
+                        <td key={j} className="px-4 py-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
                 ) : products.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
@@ -1411,10 +1452,10 @@ export const ProductModule = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="hidden md:table-cell px-4 py-3">
                           <span className="text-sm text-slate-600">{product.categoryName || '—'}</span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="hidden md:table-cell px-4 py-3">
                           <span className="text-sm text-slate-600">{product.companyName || '—'}</span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -1454,7 +1495,7 @@ export const ProductModule = () => {
         {/* Sticky Footer Pagination */}
         {products.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 hidden md:block">
               Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
               {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
               {pagination.totalCount} results
@@ -1509,6 +1550,47 @@ export const ProductModule = () => {
           onClose={() => setViewingProduct(null)}
           onEdit={handleEdit}
         />
+      )}
+
+      {showImportDropdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowImportDropdown(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xs border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-[15px] font-bold text-slate-800">Import Data</h3>
+              <p className="text-[12px] text-slate-400 mt-0.5">Choose what to import</p>
+            </div>
+            <div className="py-2">
+              {[
+                { key: 'product', label: 'Upload Products', desc: 'Add new products from file', icon: ArrowUpFromLine, color: 'text-blue-600 bg-blue-50' },
+                { key: 'price', label: 'Update Prices', desc: 'Bulk update pricing', icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
+                { key: 'stock', label: 'Update Stock', desc: 'Bulk update quantities', icon: PackageCheck, color: 'text-amber-600 bg-amber-50' },
+              ].map(({ key, label, desc, icon: Icon, color }) => (
+                <button
+                  key={key}
+                  onClick={() => { setUploadType(key); setShowImportDropdown(false); }}
+                  className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-semibold text-slate-700">{label}</p>
+                    <p className="text-[11px] text-slate-400">{desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-100">
+              <button
+                onClick={() => setShowImportDropdown(false)}
+                className="w-full h-9 text-[13px] font-medium text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {uploadType && (

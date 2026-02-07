@@ -10,7 +10,7 @@ import { SmartAutocomplete } from '../ui/SmartAutocomplete';
 import { useQuotationStore } from '../../stores/quotationStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
-import { useMasterStore } from '../../stores/masterStore';
+import { usePriceListStore } from '../../stores/priceListStore';
 import { PrintVoucherModal } from './PrintVoucherModal';
 import { useGlobalShortcuts } from '../../hooks/useKeyboardNavigation';
 import { formatCurrency } from '../../utils/formatters';
@@ -95,7 +95,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
   } = useUIStore();
 
   const user = useAuthStore(state => state.user);
-  const { parties, priceLists } = useMasterStore();
+  const { priceLists, fetchPriceLists } = usePriceListStore();
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
 
@@ -108,6 +108,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
 
   useEffect(() => {
     partyRef.current?.focus();
+    fetchPriceLists();
   }, []);
 
   useEffect(() => {
@@ -128,7 +129,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
   }, [setReference]);
 
   const handlePriceListSelect = useCallback((priceList) => {
-    setPriceList(priceList?.name || null);
+    setPriceList(priceList?.name || null, priceList?.id || 0);
   }, [setPriceList]);
 
   const handleSave = useCallback(async () => {
@@ -175,9 +176,9 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
   return (
     <div className="flex flex-col h-full bg-[#f1f5f9]">
       {/* Header Card */}
-      <div className="m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
+      <div className="m-2 md:m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
         {/* Title Bar */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e2e8f0]">
+        <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-[#e2e8f0]">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-[#3b82f6]" />
             <h1 className="text-base font-semibold text-[#0f172a]">New Quotation</h1>
@@ -196,9 +197,9 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
 
         {/* Form Fields */}
         <div className="p-4">
-          <div className="grid grid-cols-12 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-3">
             {/* Row 1: Party | Reference | Salesman | Price List */}
-            <div className="col-span-4">
+            <div className="col-span-1 md:col-span-4">
               <FormField label="Party" icon={User}>
                 <PartyAutocomplete
                   ref={partyRef}
@@ -209,7 +210,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
                 />
               </FormField>
             </div>
-            <div className="col-span-4">
+            <div className="col-span-1 md:col-span-4">
               <FormField label="Reference">
                 <PartyAutocomplete
                   ref={referenceRef}
@@ -222,7 +223,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
                 />
               </FormField>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 md:col-span-2">
               <FormField label="Salesman">
                 <TableInput
                   value={currentQuotation.salesman || user?.email || ''}
@@ -231,14 +232,14 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
                 />
               </FormField>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 md:col-span-2">
               <FormField label="Price List">
                 <SmartAutocomplete
                   ref={priceListRef}
                   value={priceLists.find(p => p.name === currentQuotation.priceList) || null}
                   onChange={handlePriceListSelect}
                   options={priceLists}
-                  searchFields={['name', 'code', 'description']}
+                  searchFields={['name', 'remark']}
                   type="priceList"
                   placeholder="Select..."
                   entityName="price lists"
@@ -250,7 +251,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
             </div>
 
             {/* Row 2: Email | Remark */}
-            <div className="col-span-4">
+            <div className="col-span-1 md:col-span-4">
               <FormField label="Email" icon={Mail}>
                 <TableInput
                   inputRef={emailRef}
@@ -270,7 +271,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
                 />
               </FormField>
             </div>
-            <div className="col-span-8">
+            <div className="col-span-1 md:col-span-8">
               <FormField label="Remark">
                 <TableInput
                   inputRef={remarkRef}
@@ -295,15 +296,15 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
       </div>
 
       {/* Line Items Grid */}
-      <div className="flex-1 m-3 overflow-hidden bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
+      <div className="flex-1 m-2 md:m-3 overflow-hidden bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
         <LineItemGrid ref={lineItemGridRef} />
       </div>
 
       {/* Bottom Section */}
-      <div className="m-3 mt-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
-        <div className="flex items-center justify-between p-3">
+      <div className="m-2 md:m-3 mt-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 p-3">
           {/* Left Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full md:w-auto justify-center md:justify-start">
             <button className="win-btn" onClick={() => showSuccess('Email feature coming soon')}>
               <Mail className="w-3.5 h-3.5" />
               Email
@@ -319,7 +320,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
           </div>
 
           {/* Center - Totals */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 md:gap-6 flex-wrap justify-center">
             <div className="text-center">
               <div className="text-[10px] uppercase tracking-wider text-[#64748b] mb-0.5">Items</div>
               <div className="font-mono text-sm font-semibold">{totals.totalItems}</div>
@@ -345,7 +346,7 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full md:w-auto justify-center md:justify-end">
             <button className="win-btn" onClick={handleNew}>
               <RotateCcw className="w-3.5 h-3.5" />
               New
@@ -374,10 +375,6 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
             <button className="win-btn" onClick={() => setShowPrintModal(true)}>
               <Printer className="w-3.5 h-3.5" />
               Print
-            </button>
-            <button className="win-btn" onClick={onBackToList}>
-              <X className="w-3.5 h-3.5" />
-              Exit
             </button>
           </div>
         </div>

@@ -584,10 +584,10 @@ export const AccountModule = () => {
   const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize) || 1;
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+    <div className="h-full flex flex-col">
+      <div className="m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
         {/* Sticky Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
               <Users className="w-4 h-4 text-emerald-600" />
@@ -595,15 +595,15 @@ export const AccountModule = () => {
             <h3 className="font-semibold text-slate-800">All Accounts</h3>
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{pagination.totalCount}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={handleSearch}
                 placeholder="Search accounts..."
-                className="h-8 w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+                className="h-8 w-full md:w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
               />
             </div>
             <button
@@ -624,27 +624,30 @@ export const AccountModule = () => {
         </div>
 
         {/* Scrollable Table */}
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-14">#</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-14">#</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-72">Account</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-72">Account</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">City</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Mobile</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Mobile</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading && accounts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">Loading accounts...</p>
-                  </td>
-                </tr>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={`loader-${i}`}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="px-4 py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : accounts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
@@ -668,7 +671,7 @@ export const AccountModule = () => {
                       selectedId === account.id ? 'bg-blue-50' : 'hover:bg-slate-50'
                     }`}
                   >
-                    <td className="px-4 py-3 text-sm text-slate-500">
+                    <td className="hidden md:table-cell px-4 py-3 text-sm text-slate-500">
                       {(pagination.page - 1) * pagination.pageSize + index + 1}
                     </td>
                     <td className="px-4 py-3">
@@ -689,7 +692,7 @@ export const AccountModule = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden md:table-cell px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                         {account.accGrpName || 'Party'}
                       </span>
@@ -697,7 +700,7 @@ export const AccountModule = () => {
                     <td className="px-4 py-3">
                       <span className="text-sm text-slate-600">{account.city || '—'}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden md:table-cell px-4 py-3">
                       <span className="text-sm text-slate-600">{account.mobileNo1 || '—'}</span>
                     </td>
                     <td className="px-4 py-3">
@@ -731,7 +734,7 @@ export const AccountModule = () => {
         {/* Sticky Footer Pagination */}
         {accounts.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 hidden md:block">
               Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
               {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
               {pagination.totalCount} results

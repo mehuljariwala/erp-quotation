@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, RefreshCw, FileCheck, Pencil, Trash2,
+  Search, RefreshCw, FileCheck, Pencil, Trash2, Plus,
   ChevronLeft, ChevronRight, Loader2, ChevronDown,
   Package, MapPin, Tag, Percent, IndianRupee
 } from 'lucide-react';
@@ -27,7 +27,7 @@ const ExpandedRow = ({ lineItems, totals }) => {
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="overflow-hidden"
     >
-      <div className="px-5 py-4 bg-gradient-to-b from-slate-50/80 to-white border-t border-slate-100">
+      <div className="px-5 py-4 bg-gradient-to-b from-slate-50/80 to-white border-t border-slate-100 overflow-x-auto">
         <div className="grid gap-2.5">
           {lineItems.map((item, idx) => (
             <div
@@ -102,7 +102,7 @@ const ExpandedRow = ({ lineItems, totals }) => {
 
         {totals && (
           <div className="flex justify-end mt-3 pt-3 border-t border-dashed border-slate-200">
-            <div className="flex items-center gap-6 px-4 py-2 bg-blue-50/70 rounded-lg">
+            <div className="flex flex-wrap items-center gap-6 px-4 py-2 bg-blue-50/70 rounded-lg">
               <div className="text-center">
                 <span className="text-[10px] uppercase tracking-wider text-slate-400">Items</span>
                 <p className="font-mono text-xs font-semibold text-slate-700">{totals.totalItems}</p>
@@ -137,6 +137,7 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
     fetchQuotations,
     loadQuotation,
     deleteQuotation,
+    newQuotation,
     isLoading
   } = useQuotationStore();
   const { showSuccess, showError } = useUIStore();
@@ -205,9 +206,9 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
   const displayPages = totalPages || Math.max(1, Math.ceil(displayCount / pageSize));
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 p-6">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 flex-shrink-0">
+    <div className="h-full flex flex-col">
+      <div className="m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
               <FileCheck className="w-4 h-4 text-blue-600" />
@@ -216,14 +217,14 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{displayCount}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={handleSearch}
                 placeholder="Search by party name..."
-                className="h-8 w-56 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
+                className="h-8 w-full md:w-56 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
               />
             </div>
             <button
@@ -233,6 +234,16 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
+            <button
+              onClick={() => {
+                newQuotation();
+                onEditQuotation?.();
+              }}
+              className="flex items-center gap-1.5 h-8 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Quotation
+            </button>
           </div>
         </div>
 
@@ -241,24 +252,27 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="w-10 px-2 py-3" />
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-14">#</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Vch No</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Vch Date</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Party</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reference</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Date</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Qty</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Reference</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Ref Person</th>
+                <th className="hidden md:table-cell text-center px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Qty</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-36">Net Amount</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && quotations.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-500 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">Loading quotations...</p>
-                  </td>
-                </tr>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={`loader-${i}`}>
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <td key={j} className="px-4 py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : quotations.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center">
@@ -294,13 +308,13 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
                             />
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-500">
-                          {(page - 1) * pageSize + index + 1}
-                        </td>
                         <td className="px-4 py-3">
                           <span className="font-mono text-sm font-semibold text-blue-600">
                             #{q.vchNoDisplay || String(q.vchNo).padStart(4, '0')}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-600">{formatDate(q.vchDate)}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -317,13 +331,13 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="hidden md:table-cell px-4 py-3">
                           <span className="text-sm text-slate-600">{q.reference?.name || '\u2014'}</span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-slate-600">{formatDate(q.vchDate)}</span>
+                        <td className="hidden md:table-cell px-4 py-3">
+                          <span className="text-sm text-slate-600">{q.refPersonName || '\u2014'}</span>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="hidden md:table-cell px-4 py-3 text-center">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
                             {q.qty || 0}
                           </span>
@@ -371,7 +385,7 @@ export const FinalQuotationModule = ({ onEditQuotation }) => {
 
         {quotations.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 hidden md:block">
               Showing {(page - 1) * pageSize + 1} to{' '}
               {Math.min(page * pageSize, displayCount)} of {displayCount} results
             </p>

@@ -67,8 +67,11 @@ const serializeAccDet = (acc) => {
   if (!acc) return null;
   return JSON.stringify({
     unId: acc.id || '',
+    name: acc.name || '',
+    alias: acc.alias || '',
     emailId: acc.email || '',
     mobileNo: acc.phone || '',
+    stateName: acc.city || '',
     imageUrl: acc.imageUrl || ''
   });
 };
@@ -175,11 +178,12 @@ const mapFromListFormat = (item) => ({
   vchDate: item.vchDate?.split('T')[0] || '',
   party: { name: item.accName || '' },
   reference: item.refName ? { name: item.refName } : null,
+  refPersonName: item.refPersonName || item.refName || '',
   remark: item.remark1 || '',
-  email: '',
+  email: item.remark2 || '',
   salesman: null,
   priceList: item.priceName || 'MRP',
-  priceId: 0,
+  priceId: item.priceId || 0,
   lineItems: [],
   totals: {
     totalItems: 0,
@@ -325,7 +329,7 @@ export const useQuotationStore = create(
         currentQuotation: { ...state.currentQuotation, salesman }
       })),
 
-      setPriceList: (priceList) => set(state => {
+      setPriceList: (priceList, priceId) => set(state => {
         const lineItems = state.currentQuotation.lineItems.map(item => {
           if (item.product && item.product.prices) {
             const newMrp = item.product.prices[priceList] || item.product.prices.MRP;
@@ -337,6 +341,7 @@ export const useQuotationStore = create(
           currentQuotation: {
             ...state.currentQuotation,
             priceList,
+            priceId: priceId ?? state.currentQuotation.priceId,
             lineItems,
             totals: calculateTotals(lineItems)
           }

@@ -651,32 +651,31 @@ export const LineItemGrid = forwardRef((props, ref) => {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div
-        className="flex shrink-0 bg-slate-50 border-b border-slate-200"
-        style={{ minWidth: totalWidth }}
-      >
-        {columnConfig.map((col) => (
-          <div
-            key={col.id}
-            className="px-2 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide border-r border-slate-200 last:border-r-0"
-            style={{
-              width: col.width,
-              minWidth: col.width,
-              textAlign: col.align || 'left'
-            }}
-          >
-            {col.header}
-          </div>
-        ))}
-      </div>
-
-      {/* Body */}
       <div
         ref={gridRef}
         className="flex-1 overflow-auto"
         style={{ minHeight: '200px' }}
       >
+        {/* Header - sticky top */}
+        <div
+          className="flex sticky top-0 z-10 bg-slate-50 border-b border-slate-200"
+          style={{ minWidth: totalWidth }}
+        >
+          {columnConfig.map((col) => (
+            <div
+              key={col.id}
+              className="px-2 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide border-r border-slate-200 last:border-r-0"
+              style={{
+                width: col.width,
+                minWidth: col.width,
+                textAlign: col.align || 'left'
+              }}
+            >
+              {col.header}
+            </div>
+          ))}
+        </div>
+
         <div style={{ minWidth: totalWidth }}>
           <AnimatePresence>
             {lineItems.length === 0 ? (
@@ -709,11 +708,10 @@ export const LineItemGrid = forwardRef((props, ref) => {
             )}
           </AnimatePresence>
         </div>
-      </div>
 
-      {/* Summary Row */}
-      {lineItems.length > 0 && (
-        <div className="flex shrink-0 bg-gradient-to-r from-slate-50 to-blue-50 border-t-2 border-slate-200" style={{ minWidth: totalWidth }}>
+        {/* Summary Row - sticky bottom */}
+        {lineItems.length > 0 && (
+          <div className="flex sticky bottom-0 z-10 bg-gradient-to-r from-slate-50 to-blue-50 border-t-2 border-slate-200" style={{ minWidth: totalWidth }}>
           {/* Sr */}
           <div className="px-1 py-2 text-xs font-bold text-slate-600 text-center border-r border-slate-200" style={{ width: 35 }}>
             {lineItems.length}
@@ -758,21 +756,10 @@ export const LineItemGrid = forwardRef((props, ref) => {
           </div>
           {/* Actions */}
           <div style={{ width: 45 }} />
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
-      {/* Add Row Button */}
-      <button
-        onClick={handleAddRow}
-        className="flex items-center justify-center gap-1.5 px-4 py-2 shrink-0
-                  bg-slate-50 border-t border-slate-200
-                  text-slate-500 hover:text-blue-600 hover:bg-blue-50
-                  transition-all duration-150 text-xs font-medium"
-      >
-        <Plus className="w-3.5 h-3.5" />
-        Add Item
-        <kbd className="kbd ml-2">Ctrl+Enter</kbd>
-      </button>
     </div>
   );
 });

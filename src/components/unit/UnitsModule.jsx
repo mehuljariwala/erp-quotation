@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  Plus, Search, RefreshCw, Building2, Pencil, Trash2,
-  ChevronLeft, ChevronRight, X, Upload, Check, AlertCircle,
-  Loader2, Image as ImageIcon
+  Plus, Search, RefreshCw, Ruler, Pencil, Trash2,
+  ChevronLeft, ChevronRight, X, Check, AlertCircle,
+  Loader2
 } from 'lucide-react';
-import { useCompanyStore } from '../../stores/companyStore';
+import { useUnitStore } from '../../stores/unitStore';
 import { useUIStore } from '../../stores/uiStore';
 
 
@@ -21,21 +21,17 @@ const StatusBadge = ({ isActive }) => (
   </span>
 );
 
-const CompanyForm = ({ company, onClose, onSave }) => {
+const UnitForm = ({ unit, onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    name: company?.name || '',
-    alias: company?.alias || '',
-    isActive: company?.isActive ?? true,
-    image: null,
-    imageUrl: company?.imageUrl || ''
+    name: unit?.name || '',
+    alias: unit?.alias || '',
+    isActive: unit?.isActive ?? true,
   });
-  const [imagePreview, setImagePreview] = useState(company?.imageUrl || null);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const nameRef = useRef(null);
   const aliasRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     nameRef.current?.focus();
@@ -43,7 +39,7 @@ const CompanyForm = ({ company, onClose, onSave }) => {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Company name is required';
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -53,23 +49,17 @@ const CompanyForm = ({ company, onClose, onSave }) => {
     if (!validate()) return;
 
     setIsSubmitting(true);
-    const result = await onSave(formData);
+    const result = await onSave({
+      name: formData.name,
+      alias: formData.alias,
+      isActive: formData.isActive,
+    });
     setIsSubmitting(false);
 
     if (result.success) {
       onClose();
     } else {
       setErrors({ submit: result.error });
-    }
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, image: file }));
-      const reader = new FileReader();
-      reader.onload = (e) => setImagePreview(e.target.result);
-      reader.readAsDataURL(file);
     }
   };
 
@@ -87,14 +77,26 @@ const CompanyForm = ({ company, onClose, onSave }) => {
     }
   };
 
+  const updateField = (field) => (e) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+  };
+
+  const inputClass = (error) => `
+    w-full h-9 px-3 text-sm border rounded-lg outline-none transition-all
+    ${error
+      ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+      : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-yellow-50'
+    }
+  `;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-200">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-800">
-            {company ? 'Edit Company' : 'Add Company'}
+            {unit ? 'Edit Unit' : 'Add Unit'}
           </h2>
           <button
             onClick={onClose}
@@ -104,91 +106,59 @@ const CompanyForm = ({ company, onClose, onSave }) => {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Image Upload */}
-          <div className="flex justify-center">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="relative w-24 h-24 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-400 cursor-pointer transition-colors overflow-hidden group"
-            >
-              {imagePreview ? (
-                <>
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-white" />
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <ImageIcon className="w-8 h-8 mb-1" />
-                  <span className="text-xs">Upload</span>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Unit Details</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={nameRef}
+                  type="text"
+                  value={formData.name}
+                  onChange={updateField('name')}
+                  onKeyDown={(e) => handleKeyDown(e, aliasRef)}
+                  className={inputClass(errors.name)}
+                  placeholder="Unit name"
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Alias</label>
+                <input
+                  ref={aliasRef}
+                  type="text"
+                  value={formData.alias}
+                  onChange={updateField('alias')}
+                  onKeyDown={(e) => handleKeyDown(e, null)}
+                  className={inputClass()}
+                  placeholder="Short name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      formData.isActive ? 'bg-blue-500' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                      formData.isActive ? 'left-6' : 'left-1'
+                    }`} />
+                  </button>
+                  <span className="text-sm text-slate-700">
+                    {formData.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </label>
+              </div>
             </div>
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              Company Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              ref={nameRef}
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              onKeyDown={(e) => handleKeyDown(e, aliasRef)}
-              className={`w-full h-10 px-3 text-sm border rounded-lg outline-none transition-all
-                ${errors.name
-                  ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                  : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-yellow-50'
-                }`}
-              placeholder="Enter company name"
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-          </div>
-
-          {/* Alias */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Alias</label>
-            <input
-              ref={aliasRef}
-              type="text"
-              value={formData.alias}
-              onChange={(e) => setFormData(prev => ({ ...prev, alias: e.target.value }))}
-              onKeyDown={(e) => handleKeyDown(e, null)}
-              className="w-full h-10 px-3 text-sm border border-slate-300 rounded-lg outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-yellow-50"
-              placeholder="Short name or alias"
-            />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Status</label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  formData.isActive ? 'bg-blue-500' : 'bg-slate-300'
-                }`}
-              >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                  formData.isActive ? 'left-6' : 'left-1'
-                }`} />
-              </button>
-              <span className="text-sm text-slate-700">
-                {formData.isActive ? 'Active' : 'Inactive'}
-              </span>
-            </label>
           </div>
 
           {errors.submit && (
@@ -198,7 +168,6 @@ const CompanyForm = ({ company, onClose, onSave }) => {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
               type="button"
@@ -220,7 +189,7 @@ const CompanyForm = ({ company, onClose, onSave }) => {
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  {company ? 'Update' : 'Create'}
+                  {unit ? 'Update' : 'Create'}
                 </>
               )}
             </button>
@@ -231,7 +200,7 @@ const CompanyForm = ({ company, onClose, onSave }) => {
   );
 };
 
-const DeleteConfirmModal = ({ company, onClose, onConfirm, isDeleting }) => (
+const DeleteConfirmModal = ({ unit, onClose, onConfirm, isDeleting }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
     <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm border border-slate-200 p-6">
@@ -239,9 +208,9 @@ const DeleteConfirmModal = ({ company, onClose, onConfirm, isDeleting }) => (
         <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
           <Trash2 className="w-6 h-6 text-red-600" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-800 mb-2">Delete Company</h3>
+        <h3 className="text-lg font-semibold text-slate-800 mb-2">Delete Unit</h3>
         <p className="text-sm text-slate-600 mb-6">
-          Are you sure you want to delete <strong>{company?.name}</strong>? This action cannot be undone.
+          Are you sure you want to delete <strong>{unit?.name}</strong>? This action cannot be undone.
         </p>
         <div className="flex gap-3">
           <button
@@ -270,37 +239,42 @@ const DeleteConfirmModal = ({ company, onClose, onConfirm, isDeleting }) => (
   </div>
 );
 
-export const CompanyModule = () => {
+export const UnitsModule = () => {
   const {
-    companies: rawCompanies,
+    units: rawUnits,
     isLoading,
-    error,
     pagination,
     filters,
-    fetchCompanies,
-    createCompany,
-    updateCompany,
-    deleteCompany,
+    fetchUnits,
+    createUnit,
+    updateUnit,
+    deleteUnit,
     setFilters,
-    setPage,
-    clearError
-  } = useCompanyStore();
+    setPage
+  } = useUnitStore();
 
-  const companies = Array.isArray(rawCompanies) ? rawCompanies : [];
+  const units = Array.isArray(rawUnits) ? rawUnits : [];
 
   const { showSuccess, showError } = useUIStore();
 
   const [showForm, setShowForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState(null);
-  const [deletingCompany, setDeletingCompany] = useState(null);
+  const [editingUnit, setEditingUnit] = useState(null);
+  const [deletingUnit, setDeletingUnit] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
   const [searchValue, setSearchValue] = useState('');
 
   const searchTimeoutRef = useRef(null);
 
   useEffect(() => {
-    fetchCompanies();
+    fetchUnits();
   }, [pagination.page, filters.name]);
+
+  useEffect(() => {
+    if (units.length > 0 && !selectedId) {
+      setSelectedId(units[0].id);
+    }
+  }, [units]);
 
   const handleSearch = (e) => {
     const value = e.target.value;
@@ -313,42 +287,50 @@ export const CompanyModule = () => {
   };
 
   const handleCreate = () => {
-    setEditingCompany(null);
+    setEditingUnit(null);
     setShowForm(true);
   };
 
-  const handleEdit = (company) => {
-    setEditingCompany(company);
+  const handleEdit = (unit) => {
+    setEditingUnit(unit);
     setShowForm(true);
   };
 
   const handleSave = async (formData) => {
-    if (editingCompany) {
-      const result = await updateCompany(editingCompany.id, formData);
+    if (editingUnit) {
+      const result = await updateUnit(editingUnit.id, formData);
       if (result.success) {
-        showSuccess('Company updated successfully');
+        showSuccess('Unit updated successfully');
       }
       return result;
     } else {
-      const result = await createCompany(formData);
+      const result = await createUnit(formData);
       if (result.success) {
-        showSuccess('Company created successfully');
+        showSuccess('Unit created successfully');
       }
       return result;
     }
   };
 
   const handleDelete = async () => {
-    if (!deletingCompany) return;
+    if (!deletingUnit) return;
     setIsDeleting(true);
-    const result = await deleteCompany(deletingCompany.id);
+    const result = await deleteUnit(deletingUnit.id);
     setIsDeleting(false);
     if (result.success) {
-      showSuccess('Company deleted successfully');
-      setDeletingCompany(null);
+      showSuccess('Unit deleted successfully');
+      setDeletingUnit(null);
     } else {
-      showError(result.error || 'Failed to delete company');
+      showError(result.error || 'Failed to delete unit');
     }
+  };
+
+  const handleRowClick = (unit) => {
+    setSelectedId(unit.id);
+  };
+
+  const handleRowDoubleClick = (unit) => {
+    handleEdit(unit);
   };
 
   const totalPages = Math.ceil(pagination.totalCount / pagination.pageSize) || 1;
@@ -356,28 +338,27 @@ export const CompanyModule = () => {
   return (
     <div className="h-full flex flex-col">
       <div className="m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm flex flex-col min-h-0 flex-1 overflow-hidden">
-        {/* Sticky Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-blue-600" />
+            <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+              <Ruler className="w-4 h-4 text-teal-600" />
             </div>
-            <h3 className="font-semibold text-slate-800">All Companies</h3>
+            <h3 className="font-semibold text-slate-800">All Units</h3>
             <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{pagination.totalCount}</span>
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2">
             <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={handleSearch}
-                placeholder="Search companies..."
+                placeholder="Search units..."
                 className="h-8 w-full md:w-52 pl-8 pr-3 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 transition-all"
               />
             </div>
             <button
-              onClick={() => fetchCompanies()}
+              onClick={() => fetchUnits()}
               disabled={isLoading}
               className="h-8 px-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
             >
@@ -393,97 +374,74 @@ export const CompanyModule = () => {
           </div>
         </div>
 
-        {/* Scrollable Table */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
+        <div className="flex-1 overflow-auto min-h-0">
           <table className="w-full">
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">
-                  #
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">
-                  Logo
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  Company Name
-                </th>
-                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  Alias
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-28">
-                  Status
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">
-                  Actions
-                </th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-14">#</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Name</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Alias</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Status</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {isLoading && companies.length === 0 ? (
+              {isLoading && units.length === 0 ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={`loader-${i}`}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <td key={j} className="px-4 py-4">
                         <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
                       </td>
                     ))}
                   </tr>
                 ))
-              ) : companies.length === 0 ? (
+              ) : units.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
-                    <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">No companies found</p>
+                  <td colSpan={5} className="px-4 py-12 text-center">
+                    <Ruler className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">No units found</p>
                     <button
                       onClick={handleCreate}
                       className="mt-2 text-sm text-blue-600 hover:underline"
                     >
-                      Add your first company
+                      Add your first unit
                     </button>
                   </td>
                 </tr>
               ) : (
-                companies.map((company, index) => (
+                units.map((unit, index) => (
                   <tr
-                    key={company.id}
-                    className="hover:bg-slate-50 transition-colors"
+                    key={unit.id}
+                    onClick={() => handleRowClick(unit)}
+                    onDoubleClick={() => handleRowDoubleClick(unit)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedId === unit.id ? 'bg-blue-50' : 'hover:bg-slate-50'
+                    }`}
                   >
                     <td className="hidden md:table-cell px-4 py-3 text-sm text-slate-500">
                       {(pagination.page - 1) * pagination.pageSize + index + 1}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
-                        {company.imageUrl ? (
-                          <img
-                            src={company.imageUrl}
-                            alt={company.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Building2 className="w-5 h-5 text-slate-400" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-slate-800">{company.name}</span>
+                      <span className="text-sm font-medium text-slate-800">{unit.name}</span>
                     </td>
                     <td className="hidden md:table-cell px-4 py-3">
-                      <span className="text-sm text-slate-600">{company.alias || '—'}</span>
+                      <span className="text-sm text-slate-600">{unit.alias || '—'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge isActive={company.isActive} />
+                      <StatusBadge isActive={unit.isActive} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleEdit(company)}
+                          onClick={(e) => { e.stopPropagation(); handleEdit(unit); }}
                           className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setDeletingCompany(company)}
+                          onClick={(e) => { e.stopPropagation(); setDeletingUnit(unit); }}
                           className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete"
                         >
@@ -498,9 +456,8 @@ export const CompanyModule = () => {
           </table>
         </div>
 
-        {/* Sticky Footer Pagination */}
-        {companies.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 shrink-0">
+        {units.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
             <p className="text-sm text-slate-600 hidden md:block">
               Showing {(pagination.page - 1) * pagination.pageSize + 1} to{' '}
               {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)} of{' '}
@@ -531,19 +488,18 @@ export const CompanyModule = () => {
         )}
       </div>
 
-      {/* Modals */}
       {showForm && (
-        <CompanyForm
-          company={editingCompany}
+        <UnitForm
+          unit={editingUnit}
           onClose={() => setShowForm(false)}
           onSave={handleSave}
         />
       )}
 
-      {deletingCompany && (
+      {deletingUnit && (
         <DeleteConfirmModal
-          company={deletingCompany}
-          onClose={() => setDeletingCompany(null)}
+          unit={deletingUnit}
+          onClose={() => setDeletingUnit(null)}
           onConfirm={handleDelete}
           isDeleting={isDeleting}
         />
@@ -552,4 +508,4 @@ export const CompanyModule = () => {
   );
 };
 
-export default CompanyModule;
+export default UnitsModule;

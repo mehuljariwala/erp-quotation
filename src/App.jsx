@@ -8,21 +8,9 @@ import { CompanyModule } from './components/company';
 import { AccountModule } from './components/account';
 import { ProductModule } from './components/product';
 import { Dashboard } from './components/dashboard';
-
-const PlaceholderModule = ({ name }) => (
-  <div className="flex items-center justify-center h-full min-h-[400px]">
-    <div className="text-center">
-      <div className="w-20 h-20 mx-auto mb-4 rounded-lg bg-[#e0e8f0] border border-[#b0c4d8] flex items-center justify-center">
-        <span className="text-3xl opacity-50">🚧</span>
-      </div>
-      <h2 className="text-xl font-semibold text-text-primary mb-2">{name}</h2>
-      <p className="text-text-muted text-sm">This module is under development</p>
-      <p className="text-xs text-text-muted mt-1">
-        Only the Quotation module is functional in this POC
-      </p>
-    </div>
-  </div>
-);
+import { CategoriesModule } from './components/category';
+import { UnitsModule } from './components/unit';
+import { PriceListsModule } from './components/pricelist';
 
 const QuotationModule = ({ view, onViewChange, onNavigate }) => {
   if (view === 'form') {
@@ -38,11 +26,12 @@ const QuotationModule = ({ view, onViewChange, onNavigate }) => {
 };
 
 function App() {
-  const [activeModule, setActiveModule] = useState('dashboard');
+  const [activeModule, setActiveModule] = useState(() => sessionStorage.getItem('activeModule') || 'dashboard');
   const [quotationView, setQuotationView] = useState('form');
 
   const handleModuleChange = (module) => {
     setActiveModule(module);
+    sessionStorage.setItem('activeModule', module);
     if (module === 'quotation') {
       setQuotationView('form');
     }
@@ -75,12 +64,12 @@ function App() {
         return <AccountModule />;
       case 'product':
         return <ProductModule />;
-      case 'user':
-        return <PlaceholderModule name="User Management" />;
-      case 'backup':
-        return <PlaceholderModule name="Backup & Restore" />;
-      case 'setting':
-        return <PlaceholderModule name="Settings" />;
+      case 'category':
+        return <CategoriesModule />;
+      case 'unit':
+        return <UnitsModule />;
+      case 'pricelist':
+        return <PriceListsModule />;
       default:
         return <Dashboard onNavigate={handleModuleChange} />;
     }
