@@ -11,6 +11,8 @@ import { Dashboard } from './components/dashboard';
 import { CategoriesModule } from './components/category';
 import { UnitsModule } from './components/unit';
 import { PriceListsModule } from './components/pricelist';
+import { ReportModule } from './components/report';
+import { UserModule } from './components/user';
 
 const QuotationModule = ({ view, onViewChange, onNavigate }) => {
   if (view === 'form') {
@@ -27,13 +29,13 @@ const QuotationModule = ({ view, onViewChange, onNavigate }) => {
 
 function App() {
   const [activeModule, setActiveModule] = useState(() => sessionStorage.getItem('activeModule') || 'dashboard');
-  const [quotationView, setQuotationView] = useState('form');
+  const [quotationView, setQuotationView] = useState('list');
 
   const handleModuleChange = (module) => {
     setActiveModule(module);
     sessionStorage.setItem('activeModule', module);
     if (module === 'quotation') {
-      setQuotationView('form');
+      setQuotationView('list');
     }
   };
 
@@ -70,6 +72,10 @@ function App() {
         return <UnitsModule />;
       case 'pricelist':
         return <PriceListsModule />;
+      case 'report':
+        return <ReportModule />;
+      case 'user':
+        return <UserModule />;
       default:
         return <Dashboard onNavigate={handleModuleChange} />;
     }

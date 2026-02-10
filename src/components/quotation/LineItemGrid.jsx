@@ -709,57 +709,42 @@ export const LineItemGrid = forwardRef((props, ref) => {
           </AnimatePresence>
         </div>
 
-        {/* Summary Row - sticky bottom */}
-        {lineItems.length > 0 && (
-          <div className="flex sticky bottom-0 z-10 bg-gradient-to-r from-slate-50 to-blue-50 border-t-2 border-slate-200" style={{ minWidth: totalWidth }}>
-          {/* Sr */}
-          <div className="px-1 py-2 text-xs font-bold text-slate-600 text-center border-r border-slate-200" style={{ width: 35 }}>
-            {lineItems.length}
-          </div>
-          {/* Area - "Total" label */}
-          <div className="px-2 py-2 text-xs font-bold text-slate-700 uppercase tracking-wide border-r border-slate-200" style={{ width: 120 }}>
-            Total
-          </div>
-          {/* PriceList */}
-          <div className="border-r border-slate-200" style={{ width: 100 }} />
-          {/* SKU Code */}
-          <div className="border-r border-slate-200" style={{ width: 110 }} />
-          {/* Image */}
-          <div className="border-r border-slate-200" style={{ width: 85 }} />
-          {/* Desc */}
-          <div className="border-r border-slate-200" style={{ width: 150 }} />
-          {/* Product */}
-          <div className="border-r border-slate-200" style={{ width: 220 }} />
-          {/* MRP */}
-          <div className="border-r border-slate-200" style={{ width: 100 }} />
-          {/* Qty */}
-          <div className="border-r border-slate-200" style={{ width: 70 }} />
-          {/* GAmt */}
-          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 110 }}>
-            {formatCurrency(totals.grossAmount, { showSymbol: false })}
-          </div>
-          {/* Disc% */}
-          <div className="border-r border-slate-200" style={{ width: 80 }} />
-          {/* DiscAmt */}
-          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-red-500 border-r border-slate-200" style={{ width: 100 }}>
-            -{formatCurrency(totals.discountAmount, { showSymbol: false })}
-          </div>
-          {/* GST% */}
-          <div className="border-r border-slate-200" style={{ width: 75 }} />
-          {/* GST Amt */}
-          <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 100 }}>
-            {formatCurrency(totals.gstAmount, { showSymbol: false })}
-          </div>
-          {/* NetAmt */}
-          <div className="px-2 py-2 text-xs font-mono font-bold text-right text-blue-600" style={{ width: 110 }}>
-            {formatCurrency(totals.netAmount, { showSymbol: false })}
-          </div>
-          {/* Actions */}
-          <div style={{ width: 45 }} />
-          </div>
-        )}
       </div>
 
+      {lineItems.length > 0 && (
+        <div className="overflow-x-auto shrink-0 border-t-2 border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50">
+          <div className="flex" style={{ minWidth: totalWidth }}>
+            <div className="px-1 py-2 text-xs font-bold text-slate-600 text-center border-r border-slate-200" style={{ width: 35 }}>
+              {lineItems.length}
+            </div>
+            <div className="px-2 py-2 text-xs font-bold text-slate-700 uppercase tracking-wide border-r border-slate-200" style={{ width: 120 }}>
+              Total
+            </div>
+            <div className="border-r border-slate-200" style={{ width: 100 }} />
+            <div className="border-r border-slate-200" style={{ width: 110 }} />
+            <div className="border-r border-slate-200" style={{ width: 85 }} />
+            <div className="border-r border-slate-200" style={{ width: 150 }} />
+            <div className="border-r border-slate-200" style={{ width: 220 }} />
+            <div className="border-r border-slate-200" style={{ width: 100 }} />
+            <div className="border-r border-slate-200" style={{ width: 70 }} />
+            <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 110 }}>
+              {formatCurrency(totals.grossAmount, { showSymbol: false })}
+            </div>
+            <div className="border-r border-slate-200" style={{ width: 80 }} />
+            <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-red-500 border-r border-slate-200" style={{ width: 100 }}>
+              -{formatCurrency(totals.discountAmount, { showSymbol: false })}
+            </div>
+            <div className="border-r border-slate-200" style={{ width: 75 }} />
+            <div className="px-2 py-2 text-xs font-mono font-semibold text-right text-slate-700 border-r border-slate-200" style={{ width: 100 }}>
+              {formatCurrency(totals.gstAmount, { showSymbol: false })}
+            </div>
+            <div className="px-2 py-2 text-xs font-mono font-bold text-right text-blue-600" style={{ width: 110 }}>
+              {formatCurrency(totals.netAmount, { showSymbol: false })}
+            </div>
+            <div style={{ width: 45 }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 });

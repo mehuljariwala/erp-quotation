@@ -376,6 +376,10 @@ export const QuotationForm = ({ onBackToList, onNavigate }) => {
               <Printer className="w-3.5 h-3.5" />
               Print
             </button>
+            <button className="win-btn" onClick={onBackToList}>
+              <X className="w-3.5 h-3.5" />
+              Exit
+            </button>
           </div>
         </div>
       </div>

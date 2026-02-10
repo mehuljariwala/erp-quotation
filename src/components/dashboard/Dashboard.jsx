@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   FileText,
   Users,
@@ -11,6 +11,10 @@ import {
   LayoutDashboard,
   Loader2
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { useDashboardStore } from '../../stores/dashboardStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatCurrency } from '../../utils/formatters';
@@ -153,6 +157,22 @@ export const Dashboard = ({ onNavigate }) => {
 
   const showSpinner = isLoading;
 
+  const barData = useMemo(() =>
+    recentQuotations.map((q) => ({
+      label: `#${q.vchNo}`,
+      amount: q.netAmount,
+      party: q.partyName,
+    })),
+    [recentQuotations]
+  );
+
+  const pieData = useMemo(() => [
+    { name: 'Quotations', value: stats.totalQuotations, color: '#3b82f6' },
+    { name: 'Accounts', value: stats.totalAccounts, color: '#10b981' },
+    { name: 'Products', value: stats.totalProducts, color: '#8b5cf6' },
+    { name: 'Companies', value: stats.totalCompanies, color: '#f59e0b' },
+  ].filter(d => d.value > 0), [stats]);
+
   return (
     <div className="m-3 mb-0 bg-white rounded-lg border border-[#e2e8f0] shadow-sm min-h-full">
       <div className="p-4 md:p-6">
@@ -212,6 +232,75 @@ export const Dashboard = ({ onNavigate }) => {
           isLoading={showSpinner}
         />
       </div>
+
+      {/* Charts Row */}
+      {!showSpinner && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </div>
+              <h3 className="font-semibold text-slate-800">Quotation Values</h3>
+            </div>
+            <div className="p-4" style={{ height: 280 }}>
+              {barData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#64748b' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
+                    <Tooltip
+                      formatter={(value) => [formatCurrency(value), 'Amount']}
+                      contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }}
+                    />
+                    <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                  No quotation data to display
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+              </div>
+              <h3 className="font-semibold text-slate-800">Overview</h3>
+            </div>
+            <div className="p-4" style={{ height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={(value) => <span className="text-xs text-slate-600">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
