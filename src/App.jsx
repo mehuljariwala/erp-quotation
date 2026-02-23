@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { MainLayout } from './components/layout/MainLayout';
 import { QuotationForm } from './components/quotation/QuotationForm';
 import { QuotationList } from './components/quotation/QuotationList';
@@ -13,6 +13,8 @@ import { UnitsModule } from './components/unit';
 import { PriceListsModule } from './components/pricelist';
 import { ReportModule } from './components/report';
 import { UserModule } from './components/user';
+import { CommandSearch } from './components/ui/CommandSearch';
+import { useQuotationStore } from './stores/quotationStore';
 
 const QuotationModule = ({ view, onViewChange, onNavigate }) => {
   if (view === 'form') {
@@ -38,6 +40,20 @@ function App() {
       setQuotationView('list');
     }
   };
+
+  const handleSearchNavigate = useCallback((module, navData) => {
+    handleModuleChange(module);
+
+    if (navData?.id && module === 'quotation') {
+      useQuotationStore.getState().loadQuotation(navData.id);
+      setQuotationView('form');
+    } else if (navData?.action === 'new') {
+      if (module === 'quotation') {
+        useQuotationStore.getState().newQuotation();
+        setQuotationView('form');
+      }
+    }
+  }, []);
 
   const renderModule = () => {
     switch (activeModule) {
@@ -89,6 +105,7 @@ function App() {
       >
         {renderModule()}
       </MainLayout>
+      <CommandSearch onNavigate={handleSearchNavigate} />
     </AuthGuard>
   );
 }

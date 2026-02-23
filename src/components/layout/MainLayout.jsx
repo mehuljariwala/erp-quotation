@@ -14,10 +14,12 @@ import {
   BarChart3,
   Shield,
   Menu,
-  X
+  X,
+  Search,
 } from 'lucide-react';
 import { Notifications } from './Notifications';
 import { useAuthStore } from '../../stores/authStore';
+import { useSearchStore } from '../../stores/searchStore';
 
 const toolbarGroups = [
   {
@@ -173,6 +175,19 @@ export const MainLayout = ({ children, activeModule, onModuleChange }) => {
           </div>
 
           <div className="flex-1" />
+
+          {/* Search Button */}
+          <button
+            onClick={() => useSearchStore.getState().toggle()}
+            className="flex items-center gap-2 h-9 my-auto mr-2 px-3 rounded-lg border border-[#b0c4d8] bg-white/50 hover:bg-white/80 transition-colors cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-xs text-slate-500 hidden sm:inline">Search...</span>
+            <div className="flex items-center gap-0.5 ml-1">
+              <kbd className="kbd text-[9px]">{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '\u2318' : 'Ctrl'}</kbd>
+              <kbd className="kbd text-[9px]">K</kbd>
+            </div>
+          </button>
 
           {/* Org + Financial Year + User Avatar */}
           <div className="flex items-center h-15 border-l border-[#b0c4d8]">
